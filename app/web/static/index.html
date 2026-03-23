@@ -104,23 +104,43 @@
                     </div>
                 </div>
 
-                <!-- Quick Setpoint -->
-                <div class="card quick-setpoint">
+                <!-- Setpoint Control -->
+                <div class="card setpoint-card">
                     <h2>Setpoint Control</h2>
-                    <div class="setpoint-input">
-                        <label>Setpoint 1</label>
-                        <div class="input-group">
-                            <input type="number" id="sp1-input" step="0.1" placeholder="--.-">
+                    <div class="setpoint-control">
+                        <div class="sp-current">
+                            <label>Current Setpoint</label>
+                            <span id="sp-live" class="sp-live-value">--.-</span>
                             <span class="unit">°C</span>
-                            <button class="btn btn-primary" onclick="writeSetpoint()">Set</button>
                         </div>
+                        <div class="sp-adjust">
+                            <button class="btn btn-nudge btn-down-big" onclick="nudgeSetpoint(-1)" title="-1.0">-1</button>
+                            <button class="btn btn-nudge btn-down" onclick="nudgeSetpoint(-0.1)" title="-0.1">-0.1</button>
+                            <div class="sp-entry">
+                                <input type="number" id="sp1-input" step="0.1" class="sp-big-input" placeholder="--.-">
+                                <span class="unit">°C</span>
+                            </div>
+                            <button class="btn btn-nudge btn-up" onclick="nudgeSetpoint(0.1)" title="+0.1">+0.1</button>
+                            <button class="btn btn-nudge btn-up-big" onclick="nudgeSetpoint(1)" title="+1.0">+1</button>
+                        </div>
+                        <button class="btn btn-primary sp-set-btn" onclick="writeSetpoint()">Set Setpoint</button>
                     </div>
                 </div>
 
-                <!-- Chart -->
+                <!-- Temperature Chart -->
                 <div class="card chart-card">
                     <h2>Temperature History</h2>
-                    <canvas id="temp-chart"></canvas>
+                    <div class="chart-wrapper">
+                        <canvas id="temp-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Output Chart -->
+                <div class="card chart-card">
+                    <h2>Output History</h2>
+                    <div class="chart-wrapper chart-wrapper-sm">
+                        <canvas id="output-chart"></canvas>
+                    </div>
                 </div>
             </div>
         </section>
@@ -128,32 +148,86 @@
         <!-- Parameters Tab -->
         <section id="tab-parameters" class="tab-content">
             <div class="params-grid">
+                <!-- PID Visual Overview -->
+                <div class="card pid-overview-card">
+                    <h2>PID Controller Overview</h2>
+                    <div class="pid-diagram">
+                        <div class="pid-block pid-input">
+                            <div class="pid-block-label">Setpoint</div>
+                            <div class="pid-block-value" id="pid-vis-sp">--.-°C</div>
+                        </div>
+                        <div class="pid-arrow">&#x2192;</div>
+                        <div class="pid-block pid-error">
+                            <div class="pid-block-label">Error (SP - PV)</div>
+                            <div class="pid-block-value" id="pid-vis-error">--.-°C</div>
+                        </div>
+                        <div class="pid-arrow">&#x2192;</div>
+                        <div class="pid-terms">
+                            <div class="pid-term pid-term-p">
+                                <div class="pid-term-header">P</div>
+                                <div class="pid-term-param">Band: <span id="pid-vis-pb">--</span>°C</div>
+                            </div>
+                            <div class="pid-term pid-term-i">
+                                <div class="pid-term-header">I</div>
+                                <div class="pid-term-param">t.i: <span id="pid-vis-ti">--</span>s</div>
+                            </div>
+                            <div class="pid-term pid-term-d">
+                                <div class="pid-term-header">D</div>
+                                <div class="pid-term-param">t.d: <span id="pid-vis-td">--</span>s</div>
+                            </div>
+                        </div>
+                        <div class="pid-arrow">&#x2192;</div>
+                        <div class="pid-block pid-output">
+                            <div class="pid-block-label">Output</div>
+                            <div class="pid-output-bar-wrap">
+                                <div class="pid-output-bar" id="pid-vis-bar" style="width:0%"></div>
+                            </div>
+                            <div class="pid-block-value" id="pid-vis-out">0%</div>
+                        </div>
+                        <div class="pid-arrow">&#x2192;</div>
+                        <div class="pid-block pid-process">
+                            <div class="pid-block-label">Process</div>
+                            <div class="pid-block-value" id="pid-vis-pv">--.-°C</div>
+                        </div>
+                    </div>
+                    <div class="pid-feedback-line">
+                        <span>&#x21A9; feedback loop</span>
+                    </div>
+                    <div class="pid-summary">
+                        <span class="pid-chip" id="pid-mode-chip">ON/OFF</span>
+                        <span class="pid-chip" id="pid-action-chip">Heating</span>
+                        <span class="pid-chip">Cycle: <span id="pid-vis-tc">--</span>s</span>
+                        <span class="pid-chip">Limit: <span id="pid-vis-opl">--</span>%</span>
+                    </div>
+                </div>
+
+                <!-- PID Parameter Form -->
                 <div class="card">
                     <h2>PID Parameters</h2>
                     <div class="param-form" id="pid-form">
                         <div class="param-row">
                             <label>Proportional Band (P.b)</label>
-                            <input type="number" id="pid-pb" step="0.1">
+                            <input type="number" id="pid-pb" step="0.1" oninput="updatePIDDiagram()">
                             <span class="unit">°C</span>
                         </div>
                         <div class="param-row">
                             <label>Integral Time (t.i)</label>
-                            <input type="number" id="pid-ti" step="0.1">
+                            <input type="number" id="pid-ti" step="0.1" oninput="updatePIDDiagram()">
                             <span class="unit">s</span>
                         </div>
                         <div class="param-row">
                             <label>Derivative Time (t.d)</label>
-                            <input type="number" id="pid-td" step="0.1">
+                            <input type="number" id="pid-td" step="0.1" oninput="updatePIDDiagram()">
                             <span class="unit">s</span>
                         </div>
                         <div class="param-row">
                             <label>Cycle Time (t.c)</label>
-                            <input type="number" id="pid-tc" step="1">
+                            <input type="number" id="pid-tc" step="1" oninput="updatePIDDiagram()">
                             <span class="unit">s</span>
                         </div>
                         <div class="param-row">
                             <label>Output Power Limit</label>
-                            <input type="number" id="pid-opl" step="1" min="0" max="100">
+                            <input type="number" id="pid-opl" step="1" min="0" max="100" oninput="updatePIDDiagram()">
                             <span class="unit">%</span>
                         </div>
                         <div class="button-row">

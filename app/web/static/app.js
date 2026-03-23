@@ -1,10 +1,14 @@
 // === Wachendorff URDR Controller Frontend ===
 
 let ws = null;
-let chart = null;
+let tempChart = null;
+let outputChart = null;
 let isConnected = false;
 let scanPollTimer = null;
-let decimalPoint = 1; // Display decimal places for temperature values
+let decimalPoint = 1;
+let lastSetpoint = null;
+let lastPV = null;
+let lastHeating = null;
 
 const MAX_CHART_POINTS = 300;
 
@@ -12,7 +16,8 @@ const MAX_CHART_POINTS = 300;
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
-    initChart();
+    initTempChart();
+    initOutputChart();
     loadConfig();
     connectWebSocket();
 });
@@ -27,7 +32,6 @@ function initTabs() {
             tab.classList.add('active');
             document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
 
-            // Load data when switching to certain tabs
             if (tab.dataset.tab === 'parameters' && isConnected) {
                 loadPIDParams();
                 loadSetpoints();
@@ -66,7 +70,6 @@ function formatTemp(val) {
 
 function updateDashboard(data) {
     isConnected = data.connected;
-    // Temperature values always have 1 decimal (tenths of degree)
 
     // Connection status
     const statusEl = document.getElementById('connection-status');
@@ -90,8 +93,18 @@ function updateDashboard(data) {
     // Live values
     const pv = data.process_value;
     const sp = data.setpoint;
+    lastPV = pv;
+    lastSetpoint = sp;
+    lastHeating = data.heating_output;
     document.getElementById('pv-value').textContent = formatTemp(pv);
     document.getElementById('sp-value').textContent = formatTemp(sp);
+    document.getElementById('sp-live').textContent = formatTemp(sp);
+
+    // Populate setpoint input if empty
+    const spInput = document.getElementById('sp1-input');
+    if (sp !== null && spInput.value === '') {
+        spInput.value = sp.toFixed(1);
+    }
 
     // Output bars
     const heating = data.heating_output || 0;
@@ -106,40 +119,40 @@ function updateDashboard(data) {
     setLed('led-auto', data.auto_mode);
     setLed('led-tuning', data.tuning_active, 'warning');
 
-    // Relay status bits
     if (data.relay_status !== null) {
         setLed('led-relay1', (data.relay_status & 1) !== 0);
         setLed('led-relay2', (data.relay_status & 2) !== 0);
     }
 
-    // Alarm status bits
     if (data.alarms_status !== null) {
         setLed('led-alarm1', (data.alarms_status & 1) !== 0, 'alarm');
         setLed('led-alarm2', (data.alarms_status & 2) !== 0, 'alarm');
     }
 
-    // Error flag
     setLed('led-error', data.error_flags !== null && data.error_flags !== 0, 'alarm');
 
-    // Update chart
+    // Update charts
     if (data.connected && pv !== null) {
-        addChartPoint(pv, sp);
+        const now = new Date().toLocaleTimeString();
+        addTempChartPoint(now, pv, sp);
+        addOutputChartPoint(now, heating, cooling);
     }
+
+    // Update PID diagram live values
+    updatePIDLive(pv, sp, heating);
 }
 
 function setLed(id, on, mode = 'on') {
     const el = document.getElementById(id);
     el.classList.remove('on', 'alarm', 'warning');
-    if (on) {
-        el.classList.add(mode);
-    }
+    if (on) el.classList.add(mode);
 }
 
-// === Chart ===
+// === Temperature Chart ===
 
-function initChart() {
+function initTempChart() {
     const ctx = document.getElementById('temp-chart').getContext('2d');
-    chart = new Chart(ctx, {
+    tempChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: [],
@@ -169,10 +182,7 @@ function initChart() {
             responsive: true,
             maintainAspectRatio: false,
             animation: { duration: 0 },
-            interaction: {
-                intersect: false,
-                mode: 'index',
-            },
+            interaction: { intersect: false, mode: 'index' },
             scales: {
                 x: {
                     display: true,
@@ -187,29 +197,146 @@ function initChart() {
                 },
             },
             plugins: {
-                legend: {
-                    labels: { color: '#e4e6f0' },
-                },
+                legend: { labels: { color: '#e4e6f0' } },
             },
         },
     });
 }
 
-function addChartPoint(pv, sp) {
-    const now = new Date();
-    const label = now.toLocaleTimeString();
+function addTempChartPoint(label, pv, sp) {
+    tempChart.data.labels.push(label);
+    tempChart.data.datasets[0].data.push(pv);
+    tempChart.data.datasets[1].data.push(sp);
 
-    chart.data.labels.push(label);
-    chart.data.datasets[0].data.push(pv);
-    chart.data.datasets[1].data.push(sp);
-
-    if (chart.data.labels.length > MAX_CHART_POINTS) {
-        chart.data.labels.shift();
-        chart.data.datasets[0].data.shift();
-        chart.data.datasets[1].data.shift();
+    if (tempChart.data.labels.length > MAX_CHART_POINTS) {
+        tempChart.data.labels.shift();
+        tempChart.data.datasets[0].data.shift();
+        tempChart.data.datasets[1].data.shift();
     }
+    tempChart.update('none');
+}
 
-    chart.update('none');
+// === Output Chart ===
+
+function initOutputChart() {
+    const ctx = document.getElementById('output-chart').getContext('2d');
+    outputChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Heating %',
+                    data: [],
+                    borderColor: '#ff5722',
+                    backgroundColor: 'rgba(255, 87, 34, 0.15)',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: true,
+                    tension: 0.2,
+                },
+                {
+                    label: 'Cooling %',
+                    data: [],
+                    borderColor: '#03a9f4',
+                    backgroundColor: 'rgba(3, 169, 244, 0.15)',
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: true,
+                    tension: 0.2,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            interaction: { intersect: false, mode: 'index' },
+            scales: {
+                x: {
+                    display: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#9a9cb8', maxTicksLimit: 10 },
+                },
+                y: {
+                    display: true,
+                    min: 0,
+                    max: 100,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#9a9cb8', stepSize: 25 },
+                    title: { display: true, text: '%', color: '#9a9cb8' },
+                },
+            },
+            plugins: {
+                legend: { labels: { color: '#e4e6f0' } },
+            },
+        },
+    });
+}
+
+function addOutputChartPoint(label, heating, cooling) {
+    outputChart.data.labels.push(label);
+    outputChart.data.datasets[0].data.push(heating);
+    outputChart.data.datasets[1].data.push(cooling);
+
+    if (outputChart.data.labels.length > MAX_CHART_POINTS) {
+        outputChart.data.labels.shift();
+        outputChart.data.datasets[0].data.shift();
+        outputChart.data.datasets[1].data.shift();
+    }
+    outputChart.update('none');
+}
+
+// === PID Diagram ===
+
+function updatePIDLive(pv, sp, heating) {
+    const visSpEl = document.getElementById('pid-vis-sp');
+    const visPvEl = document.getElementById('pid-vis-pv');
+    const visErrEl = document.getElementById('pid-vis-error');
+    const visOutEl = document.getElementById('pid-vis-out');
+    const visBar = document.getElementById('pid-vis-bar');
+
+    if (sp !== null) visSpEl.textContent = formatTemp(sp) + '°C';
+    if (pv !== null) visPvEl.textContent = formatTemp(pv) + '°C';
+    if (sp !== null && pv !== null) {
+        const err = sp - pv;
+        visErrEl.textContent = (err >= 0 ? '+' : '') + err.toFixed(1) + '°C';
+    }
+    if (heating !== null) {
+        visOutEl.textContent = heating.toFixed(1) + '%';
+        visBar.style.width = heating + '%';
+    }
+}
+
+function updatePIDDiagram() {
+    const pb = document.getElementById('pid-pb').value;
+    const ti = document.getElementById('pid-ti').value;
+    const td = document.getElementById('pid-td').value;
+    const tc = document.getElementById('pid-tc').value;
+    const opl = document.getElementById('pid-opl').value;
+
+    document.getElementById('pid-vis-pb').textContent = pb || '--';
+    document.getElementById('pid-vis-ti').textContent = ti || '--';
+    document.getElementById('pid-vis-td').textContent = td || '--';
+    document.getElementById('pid-vis-tc').textContent = tc || '--';
+    document.getElementById('pid-vis-opl').textContent = opl || '--';
+
+    // Determine mode label
+    const modeChip = document.getElementById('pid-mode-chip');
+    const pbVal = parseFloat(pb);
+    const tiVal = parseFloat(ti);
+    const tdVal = parseFloat(td);
+    if (isNaN(pbVal) || pbVal === 0) {
+        modeChip.textContent = 'ON/OFF';
+    } else if (tiVal === 0 && tdVal === 0) {
+        modeChip.textContent = 'P only';
+    } else if (tdVal === 0) {
+        modeChip.textContent = 'PI';
+    } else if (tiVal === 0) {
+        modeChip.textContent = 'PD';
+    } else {
+        modeChip.textContent = 'PID';
+    }
 }
 
 // === API Helpers ===
@@ -285,7 +412,17 @@ async function stopAutotune() {
     } catch (e) { toast('Error: ' + e.message, 'error'); }
 }
 
-// === Setpoint Quick Write ===
+// === Setpoint Control ===
+
+function nudgeSetpoint(delta) {
+    const input = document.getElementById('sp1-input');
+    let current = parseFloat(input.value);
+    if (isNaN(current)) {
+        current = lastSetpoint || 0;
+    }
+    current = Math.round((current + delta) * 10) / 10;
+    input.value = current.toFixed(1);
+}
 
 async function writeSetpoint() {
     const val = parseFloat(document.getElementById('sp1-input').value);
@@ -306,6 +443,14 @@ async function loadPIDParams() {
         if (data.derivative_time !== null) document.getElementById('pid-td').value = data.derivative_time;
         if (data.cycle_time !== null) document.getElementById('pid-tc').value = data.cycle_time;
         if (data.output_power_limit !== null) document.getElementById('pid-opl').value = data.output_power_limit;
+
+        // Update action type chip
+        const actionChip = document.getElementById('pid-action-chip');
+        if (data.action_type === 0) actionChip.textContent = 'Heating';
+        else if (data.action_type === 1) actionChip.textContent = 'Cooling';
+        else actionChip.textContent = 'Lock cmd';
+
+        updatePIDDiagram();
     } catch (e) { toast('Error loading PID: ' + e.message, 'error'); }
 }
 
@@ -438,7 +583,6 @@ async function startScan() {
         document.getElementById('scan-progress-container').classList.remove('hidden');
         toast('Scan started', 'info');
 
-        // Poll for progress
         scanPollTimer = setInterval(pollScanProgress, 1000);
     } catch (e) { toast('Error: ' + e.message, 'error'); }
 }
