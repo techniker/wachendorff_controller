@@ -13,6 +13,10 @@ from .registers import Register
 
 logger = logging.getLogger(__name__)
 
+# Temperature sensor registers are ALWAYS in degrees.tenths (scale=10)
+# per the URDR manual. The d.P. parameter only affects front-panel display.
+TEMP_SCALE = 10.0
+
 
 class ModbusClient:
     """Async Modbus RTU client for URDR controllers."""
@@ -33,6 +37,8 @@ class ModbusClient:
         self._client: Optional[AsyncModbusSerialClient] = None
         self._lock = asyncio.Lock()
         self._connected = False
+        self.decimal_point: int = 1  # d.P. parameter (display only)
+        self.temp_scale: float = TEMP_SCALE  # Always 10 for temperature sensors
 
     @property
     def connected(self) -> bool:
@@ -56,6 +62,8 @@ class ModbusClient:
                 self._connected = await self._client.connect()
                 if self._connected:
                     logger.info(f"Connected to {self.port} at {self.baudrate} baud")
+                    # Read decimal point configuration from the controller
+                    await self._read_decimal_point()
                 else:
                     logger.error(f"Failed to connect to {self.port}")
                 return self._connected
@@ -63,6 +71,22 @@ class ModbusClient:
                 logger.error(f"Connection error: {e}")
                 self._connected = False
                 return False
+
+    async def _read_decimal_point(self):
+        """Read decimal point parameter (reg 2003) for display info.
+
+        Note: Temperature sensor registers are always in degrees.tenths
+        (scale=10) regardless of d.P. The d.P. only affects front-panel display.
+        """
+        try:
+            result = await self._client.read_holding_registers(
+                address=2003, count=1, device_id=self.slave_address
+            )
+            if not result.isError():
+                self.decimal_point = result.registers[0]
+                logger.info(f"Decimal point display config: d.P.={self.decimal_point} (scale always {TEMP_SCALE} for temp sensors)")
+        except Exception as e:
+            logger.warning(f"Error reading decimal point: {e}")
 
     async def disconnect(self):
         """Disconnect from the device."""
@@ -84,7 +108,7 @@ class ModbusClient:
                 return None
             try:
                 result = await self._client.read_holding_registers(
-                    address=register.address, count=1, slave=slave
+                    address=register.address, count=1, device_id=slave
                 )
                 if result.isError():
                     logger.warning(f"Error reading register {register.name} ({register.address}): {result}")
@@ -115,7 +139,7 @@ class ModbusClient:
                 return None
             try:
                 result = await self._client.read_holding_registers(
-                    address=start, count=count, slave=slave
+                    address=start, count=count, device_id=slave
                 )
                 if result.isError():
                     logger.warning(f"Error reading register range {start}-{start+count}: {result}")
@@ -142,7 +166,7 @@ class ModbusClient:
                 return False
             try:
                 result = await self._client.write_register(
-                    address=register.address, value=value, slave=slave
+                    address=register.address, value=value, device_id=slave
                 )
                 if result.isError():
                     logger.warning(f"Error writing register {register.name}: {result}")
@@ -154,16 +178,27 @@ class ModbusClient:
                 self._connected = False
                 return False
 
+    def _get_scale(self, register: Register) -> float:
+        """Get the effective scale for a register.
+
+        Temperature/setpoint registers use the dynamic scale read from the
+        controller's decimal point parameter. Other registers (like output
+        percentages) use their hardcoded scale.
+        """
+        if register.unit == "°C":
+            return self.temp_scale
+        return register.scale
+
     async def read_scaled(self, register: Register, slave: Optional[int] = None) -> Optional[float]:
         """Read a register and return the scaled (real) value."""
         raw = await self.read_register(register, slave)
         if raw is None:
             return None
-        return raw / register.scale
+        return raw / self._get_scale(register)
 
     async def write_scaled(self, register: Register, value: float, slave: Optional[int] = None) -> bool:
         """Write a scaled value to a register (converts to raw integer)."""
-        raw = int(round(value * register.scale))
+        raw = int(round(value * self._get_scale(register)))
         return await self.write_register(register, raw, slave)
 
     def update_connection_params(self, port: str, baudrate: int, slave_address: int, serial_delay: int = 20):

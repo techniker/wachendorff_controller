@@ -4,6 +4,7 @@ let ws = null;
 let chart = null;
 let isConnected = false;
 let scanPollTimer = null;
+let decimalPoint = 1; // Display decimal places for temperature values
 
 const MAX_CHART_POINTS = 300;
 
@@ -58,8 +59,14 @@ function connectWebSocket() {
 
 // === Dashboard Updates ===
 
+function formatTemp(val) {
+    if (val === null || val === undefined) return '--.-';
+    return val.toFixed(decimalPoint);
+}
+
 function updateDashboard(data) {
     isConnected = data.connected;
+    // Temperature values always have 1 decimal (tenths of degree)
 
     // Connection status
     const statusEl = document.getElementById('connection-status');
@@ -83,8 +90,8 @@ function updateDashboard(data) {
     // Live values
     const pv = data.process_value;
     const sp = data.setpoint;
-    document.getElementById('pv-value').textContent = pv !== null ? pv.toFixed(1) : '--.-';
-    document.getElementById('sp-value').textContent = sp !== null ? sp.toFixed(1) : '--.-';
+    document.getElementById('pv-value').textContent = formatTemp(pv);
+    document.getElementById('sp-value').textContent = formatTemp(sp);
 
     // Output bars
     const heating = data.heating_output || 0;

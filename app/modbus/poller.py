@@ -29,6 +29,7 @@ class LiveData:
     auto_mode: Optional[bool] = None
     tuning_active: Optional[bool] = None
     connected: bool = False
+    decimal_point: int = 1
 
     def to_dict(self) -> dict:
         return {
@@ -44,6 +45,7 @@ class LiveData:
             "auto_mode": self.auto_mode,
             "tuning_active": self.tuning_active,
             "connected": self.connected,
+            "decimal_point": self.decimal_point,
         }
 
 
@@ -114,7 +116,7 @@ class Poller:
             self._notify()
             return
 
-        data = LiveData(timestamp=time.time(), connected=True)
+        data = LiveData(timestamp=time.time(), connected=True, decimal_point=self.client.decimal_point)
 
         # Read process value
         pv = await self.client.read_scaled(registers.PROCESS_VALUE)

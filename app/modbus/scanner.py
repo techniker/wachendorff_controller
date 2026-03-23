@@ -79,7 +79,7 @@ class DeviceScanner:
 
                 try:
                     result = await client.read_holding_registers(
-                        address=registers.DEVICE_TYPE.address, count=1, slave=addr
+                        address=registers.DEVICE_TYPE.address, count=1, device_id=addr
                     )
                     if not result.isError():
                         device = DiscoveredDevice(address=addr, device_type=result.registers[0])
@@ -87,7 +87,7 @@ class DeviceScanner:
                         # Try to read software version
                         try:
                             ver = await client.read_holding_registers(
-                                address=registers.SOFTWARE_VERSION.address, count=1, slave=addr
+                                address=registers.SOFTWARE_VERSION.address, count=1, device_id=addr
                             )
                             if not ver.isError():
                                 device.software_version = ver.registers[0]
