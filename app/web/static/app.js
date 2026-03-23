@@ -355,12 +355,15 @@ async function checkAuth() {
 function setAuthState(authenticated, username = null) {
     isAuthenticated = authenticated;
     const btn = document.getElementById('btn-auth');
+    const pwBtn = document.getElementById('btn-change-pw');
     if (authenticated) {
         btn.textContent = 'Logout (' + (username || 'admin') + ')';
         btn.classList.add('logged-in');
+        pwBtn.classList.remove('hidden');
     } else {
         btn.textContent = 'Login';
         btn.classList.remove('logged-in');
+        pwBtn.classList.add('hidden');
     }
 }
 
@@ -401,6 +404,63 @@ async function doLogin() {
             toast('Logged in', 'success');
         } else {
             errorEl.textContent = 'Invalid username or password';
+            errorEl.classList.remove('hidden');
+        }
+    } catch (e) {
+        errorEl.textContent = 'Connection error';
+        errorEl.classList.remove('hidden');
+    }
+}
+
+function openPasswordModal() {
+    document.getElementById('password-modal').classList.remove('hidden');
+    document.getElementById('pw-error').classList.add('hidden');
+    document.getElementById('pw-current').value = '';
+    document.getElementById('pw-new').value = '';
+    document.getElementById('pw-confirm').value = '';
+    document.getElementById('pw-current').focus();
+}
+
+function closePasswordModal() {
+    document.getElementById('password-modal').classList.add('hidden');
+}
+
+async function doChangePassword() {
+    const current = document.getElementById('pw-current').value;
+    const newPw = document.getElementById('pw-new').value;
+    const confirm = document.getElementById('pw-confirm').value;
+    const errorEl = document.getElementById('pw-error');
+
+    if (!current || !newPw) {
+        errorEl.textContent = 'All fields are required';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    if (newPw !== confirm) {
+        errorEl.textContent = 'New passwords do not match';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+    if (newPw.length < 4) {
+        errorEl.textContent = 'Password must be at least 4 characters';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/auth/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current_password: current, new_password: newPw }),
+        });
+        if (res.ok) {
+            closePasswordModal();
+            toast('Password changed successfully', 'success');
+        } else if (res.status === 401) {
+            errorEl.textContent = 'Current password is incorrect';
+            errorEl.classList.remove('hidden');
+        } else {
+            errorEl.textContent = 'Failed to change password';
             errorEl.classList.remove('hidden');
         }
     } catch (e) {

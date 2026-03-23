@@ -15,6 +15,7 @@
                 <span class="status-dot"></span>
                 <span id="status-text">Disconnected</span>
             </div>
+            <button id="btn-change-pw" class="btn btn-auth hidden" onclick="openPasswordModal()">Change Password</button>
             <button id="btn-auth" class="btn btn-auth" onclick="toggleAuthModal()">Login</button>
         </div>
     </header>
@@ -443,6 +444,34 @@
                 <div class="button-row">
                     <button class="btn btn-secondary" onclick="closeAuthModal()">Cancel</button>
                     <button class="btn btn-primary" onclick="doLogin()">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="password-modal" class="modal hidden">
+        <div class="modal-backdrop" onclick="closePasswordModal()"></div>
+        <div class="modal-content">
+            <h2>Change Password</h2>
+            <div class="param-form">
+                <div class="param-row">
+                    <label>Current Password</label>
+                    <input type="password" id="pw-current" autocomplete="current-password">
+                </div>
+                <div class="param-row">
+                    <label>New Password</label>
+                    <input type="password" id="pw-new" autocomplete="new-password">
+                </div>
+                <div class="param-row">
+                    <label>Confirm Password</label>
+                    <input type="password" id="pw-confirm" autocomplete="new-password"
+                           onkeydown="if(event.key==='Enter')doChangePassword()">
+                </div>
+                <div id="pw-error" class="login-error hidden"></div>
+                <div class="button-row">
+                    <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="doChangePassword()">Change Password</button>
                 </div>
             </div>
         </div>
