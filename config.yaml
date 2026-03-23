@@ -1,0 +1,21 @@
+serial:
+  port: /dev/ttyUSB0
+  baudrate: 19200
+  slave_address: 1
+  timeout: 1.0
+  serial_delay_ms: 20
+  scan_start: 1
+  scan_end: 254
+controller:
+  poll_interval: 1.0
+  auto_connect: false
+web:
+  host: 0.0.0.0
+  port: 5001
+mqtt:
+  enabled: false
+  broker: localhost
+  port: 1883
+  topic_prefix: urdr
+  username: ''
+  password: ''

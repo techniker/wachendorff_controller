@@ -1,0 +1,12 @@
+services:
+  urdr-controller:
+    build: .
+    ports:
+      - "5001:5001"
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+    restart: unless-stopped
+    environment:
+      - URDR_CONFIG_PATH=/app/config.yaml

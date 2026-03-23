@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config (keep template, ignore user config)
+# config.yaml is tracked as default template
+
+# Environment
+.env
+
+# Docker
+docker-compose.override.yml
+
+# Include doc folder (negate ignore)
+!doc/
+!doc/**

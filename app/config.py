@@ -1,0 +1,110 @@
+"""
+Configuration management — loads/saves YAML config file.
+"""
+
+import logging
+import os
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Optional
+
+import yaml
+
+logger = logging.getLogger(__name__)
+
+CONFIG_PATH = os.environ.get("URDR_CONFIG_PATH", "config.yaml")
+
+
+@dataclass
+class SerialConfig:
+    port: str = "/dev/ttyUSB0"
+    baudrate: int = 19200
+    slave_address: int = 1
+    timeout: float = 1.0
+    serial_delay_ms: int = 20
+    scan_start: int = 1
+    scan_end: int = 254
+
+
+@dataclass
+class ControllerConfig:
+    poll_interval: float = 1.0
+    auto_connect: bool = False
+
+
+@dataclass
+class WebConfig:
+    host: str = "0.0.0.0"
+    port: int = 5001
+
+
+@dataclass
+class MqttConfig:
+    enabled: bool = False
+    broker: str = "localhost"
+    port: int = 1883
+    topic_prefix: str = "urdr"
+    username: str = ""
+    password: str = ""
+
+
+@dataclass
+class AppConfig:
+    serial: SerialConfig = field(default_factory=SerialConfig)
+    controller: ControllerConfig = field(default_factory=ControllerConfig)
+    web: WebConfig = field(default_factory=WebConfig)
+    mqtt: MqttConfig = field(default_factory=MqttConfig)
+
+
+def load_config(path: Optional[str] = None) -> AppConfig:
+    """Load configuration from YAML file. Returns defaults if file doesn't exist."""
+    path = path or CONFIG_PATH
+    config = AppConfig()
+
+    if not Path(path).exists():
+        logger.info(f"Config file {path} not found, using defaults")
+        save_config(config, path)
+        return config
+
+    try:
+        with open(path, "r") as f:
+            data = yaml.safe_load(f) or {}
+
+        if "serial" in data:
+            config.serial = SerialConfig(**{
+                k: v for k, v in data["serial"].items()
+                if k in SerialConfig.__dataclass_fields__
+            })
+        if "controller" in data:
+            config.controller = ControllerConfig(**{
+                k: v for k, v in data["controller"].items()
+                if k in ControllerConfig.__dataclass_fields__
+            })
+        if "web" in data:
+            config.web = WebConfig(**{
+                k: v for k, v in data["web"].items()
+                if k in WebConfig.__dataclass_fields__
+            })
+        if "mqtt" in data:
+            config.mqtt = MqttConfig(**{
+                k: v for k, v in data["mqtt"].items()
+                if k in MqttConfig.__dataclass_fields__
+            })
+
+        logger.info(f"Config loaded from {path}")
+    except Exception as e:
+        logger.error(f"Error loading config from {path}: {e}")
+
+    return config
+
+
+def save_config(config: AppConfig, path: Optional[str] = None):
+    """Save configuration to YAML file."""
+    path = path or CONFIG_PATH
+    try:
+        data = asdict(config)
+        with open(path, "w") as f:
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        logger.info(f"Config saved to {path}")
+    except Exception as e:
+        logger.error(f"Error saving config to {path}: {e}")

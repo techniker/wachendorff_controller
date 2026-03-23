@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wachendorff URDR Controller</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+    <header>
+        <h1>Wachendorff URDR Controller</h1>
+        <div id="connection-status" class="status disconnected">
+            <span class="status-dot"></span>
+            <span id="status-text">Disconnected</span>
+        </div>
+    </header>
+
+    <nav>
+        <button class="tab active" data-tab="dashboard">Dashboard</button>
+        <button class="tab" data-tab="parameters">Parameters</button>
+        <button class="tab" data-tab="config">Configuration</button>
+        <button class="tab" data-tab="discovery">Discovery</button>
+    </nav>
+
+    <main>
+        <!-- Dashboard Tab -->
+        <section id="tab-dashboard" class="tab-content active">
+            <div class="dashboard-grid">
+                <!-- Live Values -->
+                <div class="card live-values">
+                    <h2>Live Values</h2>
+                    <div class="value-display">
+                        <div class="value-box">
+                            <label>Process Value</label>
+                            <span id="pv-value" class="big-value">--.-</span>
+                            <span class="unit">°C</span>
+                        </div>
+                        <div class="value-box">
+                            <label>Setpoint</label>
+                            <span id="sp-value" class="big-value">--.-</span>
+                            <span class="unit">°C</span>
+                        </div>
+                    </div>
+                    <div class="output-bars">
+                        <div class="bar-group">
+                            <label>Heating Output</label>
+                            <div class="bar-container">
+                                <div id="heating-bar" class="bar heating" style="width: 0%"></div>
+                            </div>
+                            <span id="heating-value">0%</span>
+                        </div>
+                        <div class="bar-group">
+                            <label>Cooling Output</label>
+                            <div class="bar-container">
+                                <div id="cooling-bar" class="bar cooling" style="width: 0%"></div>
+                            </div>
+                            <span id="cooling-value">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Indicators -->
+                <div class="card status-indicators">
+                    <h2>Status</h2>
+                    <div class="indicator-grid">
+                        <div class="indicator">
+                            <span id="led-running" class="led off"></span>
+                            <label>Running</label>
+                        </div>
+                        <div class="indicator">
+                            <span id="led-auto" class="led off"></span>
+                            <label>Auto Mode</label>
+                        </div>
+                        <div class="indicator">
+                            <span id="led-tuning" class="led off"></span>
+                            <label>Tuning</label>
+                        </div>
+                        <div class="indicator">
+                            <span id="led-relay1" class="led off"></span>
+                            <label>Relay Q1</label>
+                        </div>
+                        <div class="indicator">
+                            <span id="led-relay2" class="led off"></span>
+                            <label>Relay Q2</label>
+                        </div>
+                        <div class="indicator">
+                            <span id="led-alarm1" class="led off"></span>
+                            <label>Alarm 1</label>
+                        </div>
+                        <div class="indicator">
+                            <span id="led-alarm2" class="led off"></span>
+                            <label>Alarm 2</label>
+                        </div>
+                        <div class="indicator">
+                            <span id="led-error" class="led off"></span>
+                            <label>Error</label>
+                        </div>
+                    </div>
+                    <div class="control-buttons">
+                        <button id="btn-connect" class="btn btn-primary" onclick="toggleConnection()">Connect</button>
+                        <button id="btn-start" class="btn btn-success" onclick="controllerStart()" disabled>Start</button>
+                        <button id="btn-stop" class="btn btn-danger" onclick="controllerStop()" disabled>Stop</button>
+                    </div>
+                </div>
+
+                <!-- Quick Setpoint -->
+                <div class="card quick-setpoint">
+                    <h2>Setpoint Control</h2>
+                    <div class="setpoint-input">
+                        <label>Setpoint 1</label>
+                        <div class="input-group">
+                            <input type="number" id="sp1-input" step="0.1" placeholder="--.-">
+                            <span class="unit">°C</span>
+                            <button class="btn btn-primary" onclick="writeSetpoint()">Set</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="card chart-card">
+                    <h2>Temperature History</h2>
+                    <canvas id="temp-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Parameters Tab -->
+        <section id="tab-parameters" class="tab-content">
+            <div class="params-grid">
+                <div class="card">
+                    <h2>PID Parameters</h2>
+                    <div class="param-form" id="pid-form">
+                        <div class="param-row">
+                            <label>Proportional Band (P.b)</label>
+                            <input type="number" id="pid-pb" step="0.1">
+                            <span class="unit">°C</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Integral Time (t.i)</label>
+                            <input type="number" id="pid-ti" step="0.1">
+                            <span class="unit">s</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Derivative Time (t.d)</label>
+                            <input type="number" id="pid-td" step="0.1">
+                            <span class="unit">s</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Cycle Time (t.c)</label>
+                            <input type="number" id="pid-tc" step="1">
+                            <span class="unit">s</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Output Power Limit</label>
+                            <input type="number" id="pid-opl" step="1" min="0" max="100">
+                            <span class="unit">%</span>
+                        </div>
+                        <div class="button-row">
+                            <button class="btn btn-secondary" onclick="loadPIDParams()">Refresh</button>
+                            <button class="btn btn-primary" onclick="writePIDParams()">Write</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Setpoints</h2>
+                    <div class="param-form" id="setpoints-form">
+                        <div class="param-row">
+                            <label>Setpoint 1</label>
+                            <input type="number" id="param-sp1" step="0.1">
+                            <span class="unit">°C</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Setpoint 2</label>
+                            <input type="number" id="param-sp2" step="0.1">
+                            <span class="unit">°C</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Setpoint 3</label>
+                            <input type="number" id="param-sp3" step="0.1">
+                            <span class="unit">°C</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Setpoint 4</label>
+                            <input type="number" id="param-sp4" step="0.1">
+                            <span class="unit">°C</span>
+                        </div>
+                        <div class="button-row">
+                            <button class="btn btn-secondary" onclick="loadSetpoints()">Refresh</button>
+                            <button class="btn btn-primary" onclick="writeSetpoints()">Write</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Alarms</h2>
+                    <div class="param-form" id="alarms-form">
+                        <div class="param-row">
+                            <label>Alarm 1 Value</label>
+                            <input type="number" id="param-al1" step="0.1">
+                            <span class="unit">°C</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Alarm 2 Value</label>
+                            <input type="number" id="param-al2" step="0.1">
+                            <span class="unit">°C</span>
+                        </div>
+                        <div class="button-row">
+                            <button class="btn btn-secondary" onclick="loadAlarms()">Refresh</button>
+                            <button class="btn btn-primary" onclick="writeAlarms()">Write</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Controller Mode</h2>
+                    <div class="param-form">
+                        <div class="button-row">
+                            <button class="btn btn-success" onclick="controllerStart()">Start</button>
+                            <button class="btn btn-danger" onclick="controllerStop()">Stop</button>
+                        </div>
+                        <div class="button-row">
+                            <button class="btn btn-secondary" onclick="setMode(true)">Auto Mode</button>
+                            <button class="btn btn-secondary" onclick="setMode(false)">Manual Mode</button>
+                        </div>
+                        <div class="button-row">
+                            <button class="btn btn-warning" onclick="startAutotune()">Start Autotune</button>
+                            <button class="btn btn-secondary" onclick="stopAutotune()">Stop Autotune</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Configuration Tab -->
+        <section id="tab-config" class="tab-content">
+            <div class="config-grid">
+                <div class="card">
+                    <h2>Serial Communication (RS485)</h2>
+                    <div class="param-form" id="serial-form">
+                        <div class="param-row">
+                            <label>Serial Port</label>
+                            <input type="text" id="cfg-port" placeholder="/dev/ttyUSB0">
+                        </div>
+                        <div class="param-row">
+                            <label>Baud Rate</label>
+                            <select id="cfg-baudrate">
+                                <option value="4800">4800</option>
+                                <option value="9600">9600</option>
+                                <option value="19200" selected>19200</option>
+                                <option value="28800">28800</option>
+                                <option value="38400">38400</option>
+                                <option value="57600">57600</option>
+                            </select>
+                        </div>
+                        <div class="param-row">
+                            <label>Slave Address</label>
+                            <input type="number" id="cfg-slave" min="1" max="254" value="1">
+                        </div>
+                        <div class="param-row">
+                            <label>Timeout</label>
+                            <input type="number" id="cfg-timeout" step="0.1" value="1.0">
+                            <span class="unit">s</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Serial Delay</label>
+                            <input type="number" id="cfg-delay" min="0" max="100" value="20">
+                            <span class="unit">ms</span>
+                        </div>
+                        <div class="button-row">
+                            <button class="btn btn-primary" onclick="saveSerialConfig()">Save & Reconnect</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Polling</h2>
+                    <div class="param-form">
+                        <div class="param-row">
+                            <label>Poll Interval</label>
+                            <input type="number" id="cfg-poll" step="0.1" min="0.1" value="1.0">
+                            <span class="unit">s</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Auto-connect on startup</label>
+                            <input type="checkbox" id="cfg-autoconnect">
+                        </div>
+                        <div class="button-row">
+                            <button class="btn btn-primary" onclick="saveControllerConfig()">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Discovery Tab -->
+        <section id="tab-discovery" class="tab-content">
+            <div class="discovery-grid">
+                <div class="card">
+                    <h2>Auto-Discovery</h2>
+                    <p class="hint">Scan the RS485 bus for connected URDR devices. This will temporarily disconnect from the current device.</p>
+                    <div class="param-form">
+                        <div class="param-row">
+                            <label>Start Address</label>
+                            <input type="number" id="scan-start" min="1" max="254" value="1">
+                        </div>
+                        <div class="param-row">
+                            <label>End Address</label>
+                            <input type="number" id="scan-end" min="1" max="254" value="254">
+                        </div>
+                        <div class="button-row">
+                            <button id="btn-scan" class="btn btn-primary" onclick="startScan()">Start Scan</button>
+                            <button id="btn-scan-cancel" class="btn btn-danger" onclick="cancelScan()" disabled>Cancel</button>
+                        </div>
+                    </div>
+                    <div id="scan-progress-container" class="hidden">
+                        <div class="progress-bar">
+                            <div id="scan-progress" class="progress-fill" style="width: 0%"></div>
+                        </div>
+                        <span id="scan-progress-text">0%</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Discovered Devices</h2>
+                    <table id="devices-table">
+                        <thead>
+                            <tr>
+                                <th>Address</th>
+                                <th>Device Type</th>
+                                <th>SW Version</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devices-body">
+                            <tr><td colspan="4" class="empty">No devices found. Run a scan first.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <span>Wachendorff URDR Controller Interface</span>
+    </footer>
+
+    <div id="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
