@@ -6,9 +6,10 @@ import asyncio
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from ..auth import require_auth
 from ..config import AppConfig, SerialConfig, ControllerConfig, save_config
 from ..modbus import registers
 from ..modbus.client import ModbusClient
@@ -88,7 +89,7 @@ async def get_status():
 
 # --- Connection Endpoints ---
 
-@router.post("/connect")
+@router.post("/connect", dependencies=[Depends(require_auth)])
 async def connect():
     """Connect to the Modbus device."""
     if not _client:
@@ -99,7 +100,7 @@ async def connect():
     return {"connected": success}
 
 
-@router.post("/disconnect")
+@router.post("/disconnect", dependencies=[Depends(require_auth)])
 async def disconnect():
     """Disconnect from the Modbus device."""
     if _poller:
@@ -124,7 +125,7 @@ async def get_setpoints():
     return result
 
 
-@router.post("/setpoints")
+@router.post("/setpoints", dependencies=[Depends(require_auth)])
 async def update_setpoints(update: SetpointUpdate):
     """Update setpoints on the controller."""
     if not _client or not _client.connected:
@@ -164,7 +165,7 @@ async def get_pid_parameters():
     }
 
 
-@router.post("/pid")
+@router.post("/pid", dependencies=[Depends(require_auth)])
 async def update_pid_parameters(update: PIDUpdate):
     """Update PID parameters on the controller."""
     if not _client or not _client.connected:
@@ -208,7 +209,7 @@ async def get_alarms():
     }
 
 
-@router.post("/alarms")
+@router.post("/alarms", dependencies=[Depends(require_auth)])
 async def update_alarms(update: AlarmUpdate):
     """Update alarm setpoints."""
     if not _client or not _client.connected:
@@ -226,7 +227,7 @@ async def update_alarms(update: AlarmUpdate):
 
 # --- Controller Control ---
 
-@router.post("/controller/start")
+@router.post("/controller/start", dependencies=[Depends(require_auth)])
 async def controller_start():
     if not _client or not _client.connected:
         raise HTTPException(503, "Not connected")
@@ -234,7 +235,7 @@ async def controller_start():
     return {"started": ok}
 
 
-@router.post("/controller/stop")
+@router.post("/controller/stop", dependencies=[Depends(require_auth)])
 async def controller_stop():
     if not _client or not _client.connected:
         raise HTTPException(503, "Not connected")
@@ -242,7 +243,7 @@ async def controller_stop():
     return {"stopped": ok}
 
 
-@router.post("/controller/autotune")
+@router.post("/controller/autotune", dependencies=[Depends(require_auth)])
 async def controller_autotune():
     if not _client or not _client.connected:
         raise HTTPException(503, "Not connected")
@@ -250,7 +251,7 @@ async def controller_autotune():
     return {"autotune_started": ok}
 
 
-@router.post("/controller/autotune/stop")
+@router.post("/controller/autotune/stop", dependencies=[Depends(require_auth)])
 async def controller_autotune_stop():
     if not _client or not _client.connected:
         raise HTTPException(503, "Not connected")
@@ -258,7 +259,7 @@ async def controller_autotune_stop():
     return {"autotune_stopped": ok}
 
 
-@router.post("/controller/mode")
+@router.post("/controller/mode", dependencies=[Depends(require_auth)])
 async def set_controller_mode(auto: bool = True):
     """Set auto (True) or manual (False) mode."""
     if not _client or not _client.connected:
@@ -278,7 +279,7 @@ async def get_config():
     return asdict(_config)
 
 
-@router.post("/config/serial")
+@router.post("/config/serial", dependencies=[Depends(require_auth)])
 async def update_serial_config(update: SerialConfigUpdate):
     """Update serial communication configuration."""
     if not _config or not _client:
@@ -319,7 +320,7 @@ async def update_serial_config(update: SerialConfigUpdate):
     return asdict(_config.serial)
 
 
-@router.post("/config/controller")
+@router.post("/config/controller", dependencies=[Depends(require_auth)])
 async def update_controller_config(update: ControllerConfigUpdate):
     """Update controller polling configuration."""
     if not _config or not _poller:
@@ -339,7 +340,7 @@ async def update_controller_config(update: ControllerConfigUpdate):
 
 # --- Auto-Discovery Endpoints ---
 
-@router.post("/scan")
+@router.post("/scan", dependencies=[Depends(require_auth)])
 async def start_scan(req: ScanRequest = ScanRequest()):
     """Start auto-discovery scan."""
     global _scanner, _scan_task
@@ -386,7 +387,7 @@ async def get_scan_results():
     }
 
 
-@router.post("/scan/cancel")
+@router.post("/scan/cancel", dependencies=[Depends(require_auth)])
 async def cancel_scan():
     """Cancel ongoing scan."""
     if _scanner:
@@ -394,7 +395,7 @@ async def cancel_scan():
     return {"cancelled": True}
 
 
-@router.post("/scan/select/{address}")
+@router.post("/scan/select/{address}", dependencies=[Depends(require_auth)])
 async def select_device(address: int):
     """Select a discovered device and connect to it."""
     if not _config or not _client:

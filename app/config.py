@@ -49,11 +49,19 @@ class MqttConfig:
 
 
 @dataclass
+class AuthConfig:
+    username: str = "admin"
+    password_hash: str = ""  # bcrypt hash; empty means default password "admin"
+    session_timeout_minutes: int = 60
+
+
+@dataclass
 class AppConfig:
     serial: SerialConfig = field(default_factory=SerialConfig)
     controller: ControllerConfig = field(default_factory=ControllerConfig)
     web: WebConfig = field(default_factory=WebConfig)
     mqtt: MqttConfig = field(default_factory=MqttConfig)
+    auth: AuthConfig = field(default_factory=AuthConfig)
 
 
 def load_config(path: Optional[str] = None) -> AppConfig:
@@ -89,6 +97,11 @@ def load_config(path: Optional[str] = None) -> AppConfig:
             config.mqtt = MqttConfig(**{
                 k: v for k, v in data["mqtt"].items()
                 if k in MqttConfig.__dataclass_fields__
+            })
+        if "auth" in data:
+            config.auth = AuthConfig(**{
+                k: v for k, v in data["auth"].items()
+                if k in AuthConfig.__dataclass_fields__
             })
 
         logger.info(f"Config loaded from {path}")

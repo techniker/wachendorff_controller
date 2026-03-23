@@ -4,6 +4,7 @@ let ws = null;
 let tempChart = null;
 let outputChart = null;
 let isConnected = false;
+let isAuthenticated = false;
 let scanPollTimer = null;
 let decimalPoint = 1;
 let lastSetpoint = null;
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initOutputChart();
     loadConfig();
     connectWebSocket();
+    checkAuth();
 });
 
 // === Tab Navigation ===
@@ -339,6 +341,82 @@ function updatePIDDiagram() {
     }
 }
 
+// === Authentication ===
+
+async function checkAuth() {
+    try {
+        const data = await fetch('/api/auth/status').then(r => r.json());
+        setAuthState(data.authenticated, data.username);
+    } catch (e) {
+        setAuthState(false);
+    }
+}
+
+function setAuthState(authenticated, username = null) {
+    isAuthenticated = authenticated;
+    const btn = document.getElementById('btn-auth');
+    if (authenticated) {
+        btn.textContent = 'Logout (' + (username || 'admin') + ')';
+        btn.classList.add('logged-in');
+    } else {
+        btn.textContent = 'Login';
+        btn.classList.remove('logged-in');
+    }
+}
+
+function toggleAuthModal() {
+    if (isAuthenticated) {
+        doLogout();
+    } else {
+        openAuthModal();
+    }
+}
+
+function openAuthModal() {
+    document.getElementById('login-modal').classList.remove('hidden');
+    document.getElementById('login-error').classList.add('hidden');
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-password').focus();
+}
+
+function closeAuthModal() {
+    document.getElementById('login-modal').classList.add('hidden');
+}
+
+async function doLogin() {
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
+    const errorEl = document.getElementById('login-error');
+
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            setAuthState(true, data.username);
+            closeAuthModal();
+            toast('Logged in', 'success');
+        } else {
+            errorEl.textContent = 'Invalid username or password';
+            errorEl.classList.remove('hidden');
+        }
+    } catch (e) {
+        errorEl.textContent = 'Connection error';
+        errorEl.classList.remove('hidden');
+    }
+}
+
+async function doLogout() {
+    try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) { /* ignore */ }
+    setAuthState(false);
+    toast('Logged out', 'info');
+}
+
 // === API Helpers ===
 
 async function apiGet(path) {
@@ -351,6 +429,10 @@ async function apiPost(path, body = null) {
     const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch('/api' + path, opts);
+    if (res.status === 401) {
+        openAuthModal();
+        throw new Error('Login required');
+    }
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
 }

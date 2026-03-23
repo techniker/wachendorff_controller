@@ -16,6 +16,7 @@ from .modbus.client import ModbusClient
 from .modbus.poller import Poller
 from .api.routes import router as api_router, init_routes
 from .api.websocket import WebSocketManager
+from .auth import router as auth_router, init_auth
 
 # Configure logging
 logging.basicConfig(
@@ -66,8 +67,10 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(title="Wachendorff URDR Controller", version="1.0.0", lifespan=lifespan)
 
-# Initialize API routes with dependencies
+# Initialize auth and API routes
+init_auth(config)
 init_routes(modbus_client, poller, config)
+app.include_router(auth_router)
 app.include_router(api_router)
 
 # Serve static files

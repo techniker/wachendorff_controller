@@ -10,9 +10,12 @@
 <body>
     <header>
         <h1>Wachendorff URDR Controller</h1>
-        <div id="connection-status" class="status disconnected">
-            <span class="status-dot"></span>
-            <span id="status-text">Disconnected</span>
+        <div class="header-right">
+            <div id="connection-status" class="status disconnected">
+                <span class="status-dot"></span>
+                <span id="status-text">Disconnected</span>
+            </div>
+            <button id="btn-auth" class="btn btn-auth" onclick="toggleAuthModal()">Login</button>
         </div>
     </header>
 
@@ -419,6 +422,31 @@
     <footer>
         <span>Wachendorff URDR Controller Interface</span>
     </footer>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal hidden">
+        <div class="modal-backdrop" onclick="closeAuthModal()"></div>
+        <div class="modal-content">
+            <h2>Login</h2>
+            <p class="hint">Authentication required to modify controller settings.</p>
+            <div class="param-form">
+                <div class="param-row">
+                    <label>Username</label>
+                    <input type="text" id="login-username" value="admin" autocomplete="username">
+                </div>
+                <div class="param-row">
+                    <label>Password</label>
+                    <input type="password" id="login-password" autocomplete="current-password"
+                           onkeydown="if(event.key==='Enter')doLogin()">
+                </div>
+                <div id="login-error" class="login-error hidden"></div>
+                <div class="button-row">
+                    <button class="btn btn-secondary" onclick="closeAuthModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="doLogin()">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div id="toast-container"></div>
 
