@@ -380,6 +380,7 @@ main {
 
 .param-row input[type="number"],
 .param-row input[type="text"],
+.param-row input[type="password"],
 .param-row select {
     flex: 1;
     padding: 8px 12px;
@@ -390,7 +391,9 @@ main {
     font-size: 0.9rem;
 }
 
-.param-row input:focus,
+.param-row input[type="number"]:focus,
+.param-row input[type="text"]:focus,
+.param-row input[type="password"]:focus,
 .param-row select:focus {
     outline: none;
     border-color: var(--accent);
@@ -778,8 +781,19 @@ footer {
 /* === MQTT Tab === */
 .mqtt-grid {
     display: grid;
-    grid-template-columns: 380px 1fr;
+    grid-template-columns: 1fr;
     gap: 20px;
+}
+
+.mqtt-broker-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.mqtt-broker-grid .param-row label {
+    width: 80px;
 }
 
 .mqtt-endpoints-card {

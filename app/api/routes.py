@@ -477,16 +477,21 @@ async def update_mqtt_endpoints(update: MqttEndpointsUpdate):
 @router.post("/mqtt/connect", dependencies=[Depends(require_auth)])
 async def mqtt_connect():
     """Connect to MQTT broker."""
-    if not _mqtt:
+    if not _mqtt or not _config:
         raise HTTPException(500, "MQTT not initialized")
     ok = _mqtt.connect()
+    if ok:
+        _config.mqtt.enabled = True
+        save_config(_config)
     return {"connected": ok, "status": _mqtt.status}
 
 
 @router.post("/mqtt/disconnect", dependencies=[Depends(require_auth)])
 async def mqtt_disconnect():
     """Disconnect from MQTT broker."""
-    if not _mqtt:
+    if not _mqtt or not _config:
         raise HTTPException(500, "MQTT not initialized")
     _mqtt.disconnect()
+    _config.mqtt.enabled = False
+    save_config(_config)
     return {"connected": False}

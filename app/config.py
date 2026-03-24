@@ -127,6 +127,11 @@ def load_config(path: Optional[str] = None) -> AppConfig:
                 if k in AuthConfig.__dataclass_fields__
             })
 
+        # Populate default MQTT endpoints if missing
+        if not config.mqtt.endpoints:
+            config.mqtt.endpoints = list(DEFAULT_MQTT_ENDPOINTS)
+            save_config(config, path)
+
         logger.info(f"Config loaded from {path}")
     except Exception as e:
         logger.error(f"Error loading config from {path}: {e}")

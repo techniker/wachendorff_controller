@@ -9,6 +9,8 @@ Web-based interface for Wachendorff URDR0001 PID temperature controllers via RS4
 - **PID parameter control** — read/write proportional band, integral/derivative time, cycle time
 - **PID visualization** — block diagram showing controller loop with live values
 - **Setpoint management** — 4 setpoints with +/- nudge buttons, alarms, controller start/stop/autotune
+- **MQTT integration** — publish controller values to MQTT broker, subscribe for remote control
+- **Per-endpoint MQTT config** — individual topics, publish intervals, QoS, enable/disable per endpoint
 - **Authentication** — session-based login, write operations protected, password change via UI
 - **RS485 configuration** — serial port, baud rate, slave address, delay — all configurable via UI
 - **Auto-discovery** — scan the RS485 bus for connected URDR devices
@@ -53,9 +55,33 @@ All write operations (changing setpoints, PID parameters, configuration, control
 
 The login modal appears automatically when attempting a write action without being logged in.
 
+## MQTT
+
+Publish controller values to an MQTT broker and optionally receive remote commands. Configure via the MQTT tab in the web UI or in `config.yaml`.
+
+### Publish Endpoints (default)
+
+| Key | Topic | Interval |
+|-----|-------|----------|
+| process_value | urdr/process_value | 5s |
+| setpoint | urdr/setpoint | 10s |
+| heating_output | urdr/heating_output | 5s |
+| cooling_output | urdr/cooling_output | 5s |
+| controller_running | urdr/controller_running | 10s |
+| error_flags | urdr/error_flags | 10s |
+
+### Subscribe Endpoints (disabled by default)
+
+| Key | Topic | Payload |
+|-----|-------|---------|
+| setpoint_write | urdr/setpoint/set | Float value (e.g. `25.0`) |
+| controller_cmd | urdr/controller/cmd | `start`, `stop`, or `autotune` |
+
+Each endpoint can be individually enabled/disabled, with custom topics, publish intervals, and QoS levels. Settings are saved to `config.yaml` and persist across restarts. Connecting to a broker sets `mqtt.enabled: true` so it auto-reconnects on restart.
+
 ## Configuration
 
-Edit `config.yaml` or use the web UI Configuration tab:
+Edit `config.yaml` or use the web UI Configuration/MQTT tabs:
 
 ```yaml
 serial:
@@ -71,10 +97,19 @@ web:
   host: 0.0.0.0
   port: 5001
 mqtt:
-  enabled: false         # Future: MQTT publishing
+  enabled: false
   broker: localhost
   port: 1883
-  topic_prefix: urdr
+  username: ""
+  password: ""
+  endpoints:             # Per-endpoint config (topic, interval, qos, enabled)
+    - key: process_value
+      topic: urdr/process_value
+      direction: publish
+      enabled: true
+      interval: 5.0
+      qos: 0
+    # ... more endpoints
 auth:
   username: admin
   password_hash: <bcrypt hash>
@@ -95,6 +130,7 @@ app/
 ├── main.py              # FastAPI entry point, lifespan, WebSocket endpoint
 ├── config.py            # YAML config load/save
 ├── auth.py              # Session-based authentication, bcrypt password hashing
+├── mqtt.py              # MQTT client with per-endpoint publish/subscribe
 ├── modbus/
 │   ├── registers.py     # Complete URDR0001 register map
 │   ├── client.py        # Async Modbus RTU client (pymodbus)
@@ -134,6 +170,11 @@ app/
 | POST | `/api/config/controller` | Yes | Update polling config |
 | POST | `/api/scan` | Yes | Start auto-discovery |
 | POST | `/api/scan/select/{addr}` | Yes | Select discovered device |
+| GET | `/api/mqtt` | No | MQTT status, config, endpoints |
+| POST | `/api/mqtt/config` | Yes | Update broker settings |
+| POST | `/api/mqtt/endpoints` | Yes | Update endpoint config |
+| POST | `/api/mqtt/connect` | Yes | Connect to MQTT broker |
+| POST | `/api/mqtt/disconnect` | Yes | Disconnect from broker |
 | POST | `/api/auth/login` | No | Login |
 | POST | `/api/auth/logout` | No | Logout |
 | POST | `/api/auth/change-password` | Yes | Change password |

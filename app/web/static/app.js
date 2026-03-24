@@ -740,9 +740,12 @@ function updateMqttStatus(status) {
     led.classList.remove('on', 'alarm');
     if (status && status.connected) {
         led.classList.add('on');
-        text.textContent = 'Connected to ' + status.broker;
+        text.textContent = 'Connected to ' + status.broker + ':' + status.port;
+    } else if (status && status.last_error) {
+        led.classList.add('alarm');
+        text.textContent = 'Error: ' + status.last_error;
     } else {
-        text.textContent = status && status.last_error ? 'Error: ' + status.last_error : 'Disconnected';
+        text.textContent = 'Disconnected';
     }
     if (status) {
         counter.textContent = (status.publish_count || 0) + ' published';

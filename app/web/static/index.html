@@ -378,14 +378,14 @@
             <div class="mqtt-grid">
                 <div class="card">
                     <h2>MQTT Broker</h2>
-                    <div class="param-form">
-                        <div class="mqtt-status-row">
-                            <span id="mqtt-status-led" class="led off"></span>
-                            <span id="mqtt-status-text">Disconnected</span>
-                            <span id="mqtt-pub-count" class="mqtt-counter">0 published</span>
-                        </div>
+                    <div class="mqtt-status-row">
+                        <span id="mqtt-status-led" class="led off"></span>
+                        <span id="mqtt-status-text">Disconnected</span>
+                        <span id="mqtt-pub-count" class="mqtt-counter">0 published</span>
+                    </div>
+                    <div class="mqtt-broker-grid">
                         <div class="param-row">
-                            <label>Broker Host</label>
+                            <label>Host</label>
                             <input type="text" id="mqtt-broker" placeholder="localhost">
                         </div>
                         <div class="param-row">
@@ -400,11 +400,11 @@
                             <label>Password</label>
                             <input type="password" id="mqtt-password" placeholder="(optional)" autocomplete="off">
                         </div>
-                        <div class="button-row">
-                            <button class="btn btn-primary" onclick="saveMqttConfig()">Save</button>
-                            <button id="btn-mqtt-connect" class="btn btn-success" onclick="mqttConnect()">Connect</button>
-                            <button id="btn-mqtt-disconnect" class="btn btn-danger" onclick="mqttDisconnect()">Disconnect</button>
-                        </div>
+                    </div>
+                    <div class="button-row">
+                        <button class="btn btn-primary" onclick="saveMqttConfig()">Save</button>
+                        <button id="btn-mqtt-connect" class="btn btn-success" onclick="mqttConnect()">Connect</button>
+                        <button id="btn-mqtt-disconnect" class="btn btn-danger" onclick="mqttDisconnect()">Disconnect</button>
                     </div>
                 </div>
 
