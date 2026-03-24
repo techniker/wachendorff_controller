@@ -17,6 +17,7 @@ from .modbus.poller import Poller
 from .api.routes import router as api_router, init_routes
 from .api.websocket import WebSocketManager
 from .auth import router as auth_router, init_auth
+from .mqtt import MqttClient
 
 # Configure logging
 logging.basicConfig(
@@ -41,8 +42,12 @@ modbus_client = ModbusClient(
 poller = Poller(modbus_client, interval=config.controller.poll_interval)
 ws_manager = WebSocketManager()
 
-# Register WebSocket manager as poller subscriber
+# Create MQTT client
+mqtt_client = MqttClient(config, modbus_client)
+
+# Register WebSocket manager and MQTT as poller subscribers
 poller.subscribe(ws_manager.on_live_data)
+poller.subscribe(mqtt_client.on_live_data)
 
 
 @asynccontextmanager
@@ -57,10 +62,14 @@ async def lifespan(app: FastAPI):
             logger.info("Auto-connect successful, poller started")
         else:
             logger.warning("Auto-connect failed")
+    if config.mqtt.enabled:
+        logger.info("Auto-connecting to MQTT broker...")
+        mqtt_client.connect()
     yield
     # Shutdown
     logger.info("Shutting down...")
     poller.stop()
+    mqtt_client.disconnect()
     await modbus_client.disconnect()
 
 
@@ -69,7 +78,7 @@ app = FastAPI(title="Wachendorff URDR Controller", version="1.0.0", lifespan=lif
 
 # Initialize auth and API routes
 init_auth(config)
-init_routes(modbus_client, poller, config)
+init_routes(modbus_client, poller, config, mqtt_client)
 app.include_router(auth_router)
 app.include_router(api_router)
 

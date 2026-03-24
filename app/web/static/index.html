@@ -24,6 +24,7 @@
         <button class="tab active" data-tab="dashboard">Dashboard</button>
         <button class="tab" data-tab="parameters">Parameters</button>
         <button class="tab" data-tab="config">Configuration</button>
+        <button class="tab" data-tab="mqtt">MQTT</button>
         <button class="tab" data-tab="discovery">Discovery</button>
     </nav>
 
@@ -367,6 +368,66 @@
                         <div class="button-row">
                             <button class="btn btn-primary" onclick="saveControllerConfig()">Save</button>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MQTT Tab -->
+        <section id="tab-mqtt" class="tab-content">
+            <div class="mqtt-grid">
+                <div class="card">
+                    <h2>MQTT Broker</h2>
+                    <div class="param-form">
+                        <div class="mqtt-status-row">
+                            <span id="mqtt-status-led" class="led off"></span>
+                            <span id="mqtt-status-text">Disconnected</span>
+                            <span id="mqtt-pub-count" class="mqtt-counter">0 published</span>
+                        </div>
+                        <div class="param-row">
+                            <label>Broker Host</label>
+                            <input type="text" id="mqtt-broker" placeholder="localhost">
+                        </div>
+                        <div class="param-row">
+                            <label>Port</label>
+                            <input type="number" id="mqtt-port" value="1883">
+                        </div>
+                        <div class="param-row">
+                            <label>Username</label>
+                            <input type="text" id="mqtt-username" placeholder="(optional)" autocomplete="off">
+                        </div>
+                        <div class="param-row">
+                            <label>Password</label>
+                            <input type="password" id="mqtt-password" placeholder="(optional)" autocomplete="off">
+                        </div>
+                        <div class="button-row">
+                            <button class="btn btn-primary" onclick="saveMqttConfig()">Save</button>
+                            <button id="btn-mqtt-connect" class="btn btn-success" onclick="mqttConnect()">Connect</button>
+                            <button id="btn-mqtt-disconnect" class="btn btn-danger" onclick="mqttDisconnect()">Disconnect</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mqtt-endpoints-card">
+                    <h2>MQTT Endpoints</h2>
+                    <p class="hint">Configure topics, intervals, and enable/disable individual publish and subscribe endpoints.</p>
+                    <table class="mqtt-table">
+                        <thead>
+                            <tr>
+                                <th>Enabled</th>
+                                <th>Key</th>
+                                <th>Direction</th>
+                                <th>Topic</th>
+                                <th>Interval</th>
+                                <th>QoS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mqtt-endpoints-body">
+                        </tbody>
+                    </table>
+                    <div class="button-row" style="margin-top:16px">
+                        <button class="btn btn-secondary" onclick="loadMqttConfig()">Refresh</button>
+                        <button class="btn btn-primary" onclick="saveMqttEndpoints()">Save Endpoints</button>
                     </div>
                 </div>
             </div>

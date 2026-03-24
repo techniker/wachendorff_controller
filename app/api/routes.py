@@ -16,6 +16,8 @@ from ..modbus.client import ModbusClient
 from ..modbus.poller import Poller
 from ..modbus.scanner import DeviceScanner, ScanResult
 
+from ..mqtt import MqttClient
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
@@ -26,13 +28,15 @@ _poller: Optional[Poller] = None
 _config: Optional[AppConfig] = None
 _scanner: Optional[DeviceScanner] = None
 _scan_task: Optional[asyncio.Task] = None
+_mqtt: Optional[MqttClient] = None
 
 
-def init_routes(client: ModbusClient, poller: Poller, config: AppConfig):
-    global _client, _poller, _config
+def init_routes(client: ModbusClient, poller: Poller, config: AppConfig, mqtt_client: Optional[MqttClient] = None):
+    global _client, _poller, _config, _mqtt
     _client = client
     _poller = poller
     _config = config
+    _mqtt = mqtt_client
 
 
 # --- Request/Response Models ---
@@ -415,3 +419,74 @@ async def select_device(address: int):
         _poller.start()
 
     return {"connected": success, "address": address}
+
+
+# --- MQTT Endpoints ---
+
+class MqttBrokerUpdate(BaseModel):
+    broker: Optional[str] = None
+    port: Optional[int] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+
+
+class MqttEndpointsUpdate(BaseModel):
+    endpoints: list[dict]
+
+
+@router.get("/mqtt")
+async def get_mqtt_status():
+    """Get MQTT status, broker config, and endpoints."""
+    if not _config:
+        raise HTTPException(500, "Not initialized")
+    return {
+        "status": _mqtt.status if _mqtt else {"connected": False},
+        "broker": _config.mqtt.broker,
+        "port": _config.mqtt.port,
+        "username": _config.mqtt.username,
+        "password": _config.mqtt.password,
+        "endpoints": _config.mqtt.endpoints,
+    }
+
+
+@router.post("/mqtt/config", dependencies=[Depends(require_auth)])
+async def update_mqtt_config(update: MqttBrokerUpdate):
+    """Update MQTT broker settings."""
+    if not _config or not _mqtt:
+        raise HTTPException(500, "Not initialized")
+
+    broker = update.broker or _config.mqtt.broker
+    port = update.port or _config.mqtt.port
+    username = update.username if update.username is not None else _config.mqtt.username
+    password = update.password if update.password is not None else _config.mqtt.password
+
+    _mqtt.update_broker_config(broker, port, username, password)
+    return {"broker": broker, "port": port, "username": username}
+
+
+@router.post("/mqtt/endpoints", dependencies=[Depends(require_auth)])
+async def update_mqtt_endpoints(update: MqttEndpointsUpdate):
+    """Update MQTT endpoint configuration."""
+    if not _config or not _mqtt:
+        raise HTTPException(500, "Not initialized")
+
+    _mqtt.update_endpoints(update.endpoints)
+    return {"endpoints": _config.mqtt.endpoints}
+
+
+@router.post("/mqtt/connect", dependencies=[Depends(require_auth)])
+async def mqtt_connect():
+    """Connect to MQTT broker."""
+    if not _mqtt:
+        raise HTTPException(500, "MQTT not initialized")
+    ok = _mqtt.connect()
+    return {"connected": ok, "status": _mqtt.status}
+
+
+@router.post("/mqtt/disconnect", dependencies=[Depends(require_auth)])
+async def mqtt_disconnect():
+    """Disconnect from MQTT broker."""
+    if not _mqtt:
+        raise HTTPException(500, "MQTT not initialized")
+    _mqtt.disconnect()
+    return {"connected": False}

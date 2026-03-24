@@ -39,6 +39,28 @@ class WebConfig:
 
 
 @dataclass
+class MqttEndpoint:
+    key: str = ""
+    topic: str = ""
+    direction: str = "publish"  # "publish" or "subscribe"
+    enabled: bool = True
+    interval: float = 5.0  # Publish interval in seconds
+    qos: int = 0
+
+
+DEFAULT_MQTT_ENDPOINTS = [
+    {"key": "process_value", "topic": "urdr/process_value", "direction": "publish", "enabled": True, "interval": 5.0, "qos": 0},
+    {"key": "setpoint", "topic": "urdr/setpoint", "direction": "publish", "enabled": True, "interval": 10.0, "qos": 0},
+    {"key": "heating_output", "topic": "urdr/heating_output", "direction": "publish", "enabled": True, "interval": 5.0, "qos": 0},
+    {"key": "cooling_output", "topic": "urdr/cooling_output", "direction": "publish", "enabled": True, "interval": 5.0, "qos": 0},
+    {"key": "controller_running", "topic": "urdr/controller_running", "direction": "publish", "enabled": True, "interval": 10.0, "qos": 0},
+    {"key": "error_flags", "topic": "urdr/error_flags", "direction": "publish", "enabled": True, "interval": 10.0, "qos": 0},
+    {"key": "setpoint_write", "topic": "urdr/setpoint/set", "direction": "subscribe", "enabled": False, "interval": 0, "qos": 1},
+    {"key": "controller_cmd", "topic": "urdr/controller/cmd", "direction": "subscribe", "enabled": False, "interval": 0, "qos": 1},
+]
+
+
+@dataclass
 class MqttConfig:
     enabled: bool = False
     broker: str = "localhost"
@@ -46,6 +68,7 @@ class MqttConfig:
     topic_prefix: str = "urdr"
     username: str = ""
     password: str = ""
+    endpoints: list = field(default_factory=lambda: list(DEFAULT_MQTT_ENDPOINTS))
 
 
 @dataclass

@@ -39,6 +39,9 @@ function initTabs() {
                 loadSetpoints();
                 loadAlarms();
             }
+            if (tab.dataset.tab === 'mqtt') {
+                loadMqttConfig();
+            }
         });
     });
 }
@@ -710,6 +713,150 @@ async function saveControllerConfig() {
         await apiPost('/config/controller', body);
         toast('Controller config saved', 'success');
     } catch (e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// === MQTT ===
+
+let mqttPollTimer = null;
+
+async function loadMqttConfig() {
+    try {
+        const data = await apiGet('/mqtt');
+        document.getElementById('mqtt-broker').value = data.broker || '';
+        document.getElementById('mqtt-port').value = data.port || 1883;
+        document.getElementById('mqtt-username').value = data.username || '';
+        document.getElementById('mqtt-password').value = data.password || '';
+        updateMqttStatus(data.status);
+        renderMqttEndpoints(data.endpoints || []);
+    } catch (e) {
+        console.error('Error loading MQTT config:', e);
+    }
+}
+
+function updateMqttStatus(status) {
+    const led = document.getElementById('mqtt-status-led');
+    const text = document.getElementById('mqtt-status-text');
+    const counter = document.getElementById('mqtt-pub-count');
+    led.classList.remove('on', 'alarm');
+    if (status && status.connected) {
+        led.classList.add('on');
+        text.textContent = 'Connected to ' + status.broker;
+    } else {
+        text.textContent = status && status.last_error ? 'Error: ' + status.last_error : 'Disconnected';
+    }
+    if (status) {
+        counter.textContent = (status.publish_count || 0) + ' published';
+    }
+}
+
+function renderMqttEndpoints(endpoints) {
+    const tbody = document.getElementById('mqtt-endpoints-body');
+    tbody.innerHTML = endpoints.map((ep, i) => {
+        const dirClass = ep.direction === 'publish' ? 'dir-publish' : 'dir-subscribe';
+        const dirLabel = ep.direction === 'publish' ? 'PUB' : 'SUB';
+        const intervalHtml = ep.direction === 'publish'
+            ? `<input type="number" data-idx="${i}" data-field="interval" value="${ep.interval}" step="1" min="1">`
+            : '<span style="color:var(--text-secondary)">—</span>';
+        return `<tr>
+            <td>
+                <label class="toggle">
+                    <input type="checkbox" data-idx="${i}" data-field="enabled" ${ep.enabled ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </td>
+            <td style="font-size:0.85rem;font-weight:500">${ep.key}</td>
+            <td><span class="${dirClass}">${dirLabel}</span></td>
+            <td><input type="text" data-idx="${i}" data-field="topic" value="${ep.topic}"></td>
+            <td>${intervalHtml}</td>
+            <td>
+                <select data-idx="${i}" data-field="qos">
+                    <option value="0" ${ep.qos === 0 ? 'selected' : ''}>0</option>
+                    <option value="1" ${ep.qos === 1 ? 'selected' : ''}>1</option>
+                    <option value="2" ${ep.qos === 2 ? 'selected' : ''}>2</option>
+                </select>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function collectMqttEndpoints() {
+    const rows = document.querySelectorAll('#mqtt-endpoints-body tr');
+    const endpoints = [];
+    // We need the original data to get key/direction; read from DOM
+    rows.forEach((row, i) => {
+        const key = row.querySelector('td:nth-child(2)').textContent.trim();
+        const dirText = row.querySelector('td:nth-child(3) span').textContent.trim();
+        const direction = dirText === 'PUB' ? 'publish' : 'subscribe';
+        const enabled = row.querySelector(`input[data-field="enabled"]`).checked;
+        const topicInput = row.querySelector(`input[data-field="topic"]`);
+        const topic = topicInput ? topicInput.value : '';
+        const intervalInput = row.querySelector(`input[data-field="interval"]`);
+        const interval = intervalInput ? parseFloat(intervalInput.value) || 5 : 0;
+        const qosSelect = row.querySelector(`select[data-field="qos"]`);
+        const qos = qosSelect ? parseInt(qosSelect.value) : 0;
+        endpoints.push({ key, topic, direction, enabled, interval, qos });
+    });
+    return endpoints;
+}
+
+async function saveMqttConfig() {
+    const body = {
+        broker: document.getElementById('mqtt-broker').value,
+        port: parseInt(document.getElementById('mqtt-port').value),
+        username: document.getElementById('mqtt-username').value,
+        password: document.getElementById('mqtt-password').value,
+    };
+    try {
+        await apiPost('/mqtt/config', body);
+        toast('MQTT broker config saved', 'success');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function saveMqttEndpoints() {
+    const endpoints = collectMqttEndpoints();
+    try {
+        await apiPost('/mqtt/endpoints', { endpoints });
+        toast('MQTT endpoints saved', 'success');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function mqttConnect() {
+    try {
+        const result = await apiPost('/mqtt/connect');
+        updateMqttStatus(result.status);
+        if (result.connected) {
+            toast('MQTT connected', 'success');
+            startMqttStatusPoll();
+        } else {
+            toast('MQTT connection failed', 'error');
+        }
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function mqttDisconnect() {
+    try {
+        await apiPost('/mqtt/disconnect');
+        updateMqttStatus({ connected: false });
+        stopMqttStatusPoll();
+        toast('MQTT disconnected', 'info');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+}
+
+function startMqttStatusPoll() {
+    stopMqttStatusPoll();
+    mqttPollTimer = setInterval(async () => {
+        try {
+            const data = await apiGet('/mqtt');
+            updateMqttStatus(data.status);
+        } catch (e) { /* ignore */ }
+    }, 5000);
+}
+
+function stopMqttStatusPoll() {
+    if (mqttPollTimer) {
+        clearInterval(mqttPollTimer);
+        mqttPollTimer = null;
+    }
 }
 
 // === Auto-Discovery ===
