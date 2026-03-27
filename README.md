@@ -25,6 +25,7 @@ Web-based interface for Wachendorff URDR0001 PID temperature controllers via RS4
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+cp config.yaml.example config.yaml   # first time only
 python -m app.main
 ```
 

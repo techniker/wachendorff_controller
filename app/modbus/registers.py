@@ -214,6 +214,15 @@ POLL_LIVE_REGISTERS = [
     CONTROLLER_START_STOP,
     AUTO_MANUAL,
     TUNING_ON_OFF,
+    COLD_JUNCTION_TEMP,
+]
+
+# Device identification registers (read once on connect)
+DEVICE_INFO_REGISTERS = [
+    DEVICE_TYPE,
+    SOFTWARE_VERSION,
+    SLAVE_ADDRESS,
+    BOOT_VERSION,
 ]
 
 # PID parameters to read on demand
@@ -232,6 +241,172 @@ SETPOINT_REGISTERS = [SETPOINT_1, SETPOINT_2, SETPOINT_3, SETPOINT_4]
 
 # Alarm registers
 ALARM_REGISTERS = [ALARM_1, ALARM_2, PARAM_ALARM1, PARAM_ALARM2, PARAM_AL1_HYSTERESIS, PARAM_AL2_HYSTERESIS]
+
+# --- Parameter Groups for Configuration UI ---
+# Each group is a dict: key -> (register, label, options_or_none)
+# Options are provided for select/dropdown fields as {value: label}
+
+SENSOR_TYPE_OPTIONS = {
+    0: "J", 1: "K", 2: "R", 3: "S", 4: "T", 5: "B", 6: "E", 7: "N",
+    8: "L (DIN43710)", 9: "Cust1", 10: "Cust2", 11: "PTC", 12: "NTC",
+    13: "0-50mV", 14: "10-50mV", 15: "0-60mV", 16: "12-60mV",
+    17: "0-20mA", 18: "4-20mA", 19: "0-10V", 20: "2-10V",
+}
+
+ALARM_TYPE_OPTIONS = {
+    0: "Disabled", 1: "Abs. high (heat)", 2: "Abs. low (heat)",
+    3: "Abs. high (cool)", 4: "Abs. low (cool)",
+    5: "Deviation high", 6: "Deviation low", 7: "Deviation band",
+    8: "Loop break", 9: "LBA heat", 10: "LBA cool",
+}
+
+ALARM_OUTPUT_OPTIONS = {0: "De-energized", 1: "Energized"}
+ALARM_RESET_OPTIONS = {0: "Automatic", 1: "Manual"}
+CMD_RESET_OPTIONS = {0: "Normal", 1: "Reverse"}
+CMD_STATE_ERR_OPTIONS = {0: "Off", 1: "On"}
+CMD_LED_OPTIONS = {0: "Off", 1: "On"}
+ACTION_TYPE_OPTIONS = {0: "Heating", 1: "Cooling", 2: "Lock command"}
+COOLING_FLUID_OPTIONS = {0: "Water", 1: "Oil", 2: "Fan/Air"}
+TUNE_TYPE_OPTIONS = {0: "PID", 1: "PI Fast", 2: "PI Slow"}
+OP_MODE_OPTIONS = {
+    0: "Controller", 1: "Pre-programmed cycle", 2: "SP digital input",
+    3: "SP digital impulse", 4: "4 SP digital impulse", 5: "Reset time",
+    6: "Pre-programmed start/stop",
+}
+AUTO_MANUAL_OPTIONS = {0: "Automatic", 1: "Manual"}
+DIGITAL_INPUT_OPTIONS = {
+    0: "Disabled", 1: "Run/Stop", 2: "Auto/Manual", 3: "SP select",
+    4: "Alarm reset", 5: "Timer reset",
+}
+DEGREE_OPTIONS = {0: "Celsius", 1: "Fahrenheit"}
+RETRANS_OPTIONS = {0: "Disabled", 1: "Process value", 2: "Setpoint", 3: "Output"}
+C_OUT_OPTIONS = {
+    0: "Relay Q1", 1: "SSR logic", 2: "Continuous 0-10V",
+    3: "Continuous 4-20mA", 4: "Relay Q1 + SSR",
+}
+DECIMAL_POINT_OPTIONS = {0: "0 (integer)", 1: "1 (x.x)", 2: "2 (x.xx)"}
+LATCH_OPTIONS = {0: "Off", 1: "On"}
+VIS_TYPE_OPTIONS = {0: "PV", 1: "SP", 2: "PV + SP alternate"}
+
+# Grouped parameter definitions: (register, label, unit_or_none, options_or_none, step)
+PARAM_GROUPS = {
+    "command": {
+        "title": "Command Output",
+        "params": [
+            (PARAM_C_OUT, "Output Type", "", C_OUT_OPTIONS, None),
+            (PARAM_ACTION_TYPE, "Action Type", "", ACTION_TYPE_OPTIONS, None),
+            (PARAM_CMD_HYSTERESIS, "Hysteresis", "°C", None, 1),
+            (PARAM_CMD_RESET, "Reset Type", "", CMD_RESET_OPTIONS, None),
+            (PARAM_CMD_STATE_ERR, "State on Error", "", CMD_STATE_ERR_OPTIONS, None),
+            (PARAM_CMD_LED, "LED State", "", CMD_LED_OPTIONS, None),
+            (PARAM_CMD_DELAY, "Delay", "s", None, 1),
+            (PARAM_CMD_SP_PROTECT, "SP Protection", "", {0: "Off", 1: "On"}, None),
+        ],
+    },
+    "sensor": {
+        "title": "Sensor & Input",
+        "params": [
+            (PARAM_SENSOR, "Sensor Type", "", SENSOR_TYPE_OPTIONS, None),
+            (PARAM_DECIMAL_POINT, "Decimal Point", "", DECIMAL_POINT_OPTIONS, None),
+            (PARAM_LO_LIMIT_SP, "Lower SP Limit", "", None, 1),
+            (PARAM_UP_LIMIT_SP, "Upper SP Limit", "", None, 1),
+            (PARAM_LO_LINEAR, "Lower Linear Input", "", None, 1),
+            (PARAM_UP_LINEAR, "Upper Linear Input", "", None, 1),
+            (PARAM_OFFSET_CAL, "Offset Calibration", "", None, 1),
+            (PARAM_GAIN_CAL, "Gain Calibration", "", None, 1),
+            (PARAM_LATCH, "Latch Function", "", LATCH_OPTIONS, None),
+        ],
+    },
+    "alarm1": {
+        "title": "Alarm 1",
+        "params": [
+            (ALARM_1, "Alarm 1 Value", "°C", None, 0.1),
+            (PARAM_ALARM1, "Alarm 1 Type", "", ALARM_TYPE_OPTIONS, None),
+            (PARAM_AL1_OUTPUT, "Output State", "", ALARM_OUTPUT_OPTIONS, None),
+            (PARAM_AL1_RESET, "Reset Mode", "", ALARM_RESET_OPTIONS, None),
+            (PARAM_AL1_STATE_ERR, "State on Error", "", CMD_STATE_ERR_OPTIONS, None),
+            (PARAM_AL1_LED, "LED State", "", CMD_LED_OPTIONS, None),
+            (PARAM_AL1_HYSTERESIS, "Hysteresis", "°C", None, 1),
+            (PARAM_AL1_DELAY, "Delay", "s", None, 1),
+            (PARAM_AL1_SP_PROTECT, "SP Protection", "", {0: "Off", 1: "On"}, None),
+        ],
+    },
+    "alarm2": {
+        "title": "Alarm 2",
+        "params": [
+            (ALARM_2, "Alarm 2 Value", "°C", None, 0.1),
+            (PARAM_ALARM2, "Alarm 2 Type", "", ALARM_TYPE_OPTIONS, None),
+            (PARAM_AL2_OUTPUT, "Output State", "", ALARM_OUTPUT_OPTIONS, None),
+            (PARAM_AL2_RESET, "Reset Mode", "", ALARM_RESET_OPTIONS, None),
+            (PARAM_AL2_STATE_ERR, "State on Error", "", CMD_STATE_ERR_OPTIONS, None),
+            (PARAM_AL2_LED, "LED State", "", CMD_LED_OPTIONS, None),
+            (PARAM_AL2_HYSTERESIS, "Hysteresis", "°C", None, 1),
+            (PARAM_AL2_DELAY, "Delay", "s", None, 1),
+            (PARAM_AL2_SP_PROTECT, "SP Protection", "", {0: "Off", 1: "On"}, None),
+        ],
+    },
+    "cooling": {
+        "title": "Cooling",
+        "params": [
+            (PARAM_COOLING_FLUID, "Cooling Fluid", "", COOLING_FLUID_OPTIONS, None),
+            (PARAM_PB_MULTIPLIER, "PB Multiplier", "", None, 1),
+            (PARAM_OVERLAP_DEAD, "Overlap/Dead Band", "", None, 1),
+            (PARAM_COOL_CYCLE_TIME, "Cooling Cycle Time", "s", None, 1),
+        ],
+    },
+    "tuning": {
+        "title": "Tuning & Mode",
+        "params": [
+            (PARAM_TUNE, "Tuning Type", "", TUNE_TYPE_OPTIONS, None),
+            (PARAM_SD_TUNE, "SP Deviation Tune", "", None, 1),
+            (PARAM_OP_MODE, "Operating Mode", "", OP_MODE_OPTIONS, None),
+            (PARAM_AUTO_MANUAL, "Auto/Manual", "", AUTO_MANUAL_OPTIONS, None),
+            (PARAM_DIGITAL_INPUT, "Digital Input Function", "", DIGITAL_INPUT_OPTIONS, None),
+            (PARAM_GRADIENT, "Gradient", "", None, 1),
+            (PARAM_MAINT_TIME, "Maintenance Time", "h", None, 1),
+        ],
+    },
+    "signal": {
+        "title": "Signal Processing",
+        "params": [
+            (PARAM_CONV_FILTER, "Conversion Filter", "", None, 1),
+            (PARAM_CONV_FREQ, "Conversion Frequency", "Hz", None, 1),
+            (PARAM_VIS_FILTER, "Visualization Filter", "", None, 1),
+        ],
+    },
+    "display": {
+        "title": "Display & Communication",
+        "params": [
+            (PARAM_VIS_TYPE, "Visualization Type", "", VIS_TYPE_OPTIONS, None),
+            (PARAM_DEGREE, "Degree Type", "", DEGREE_OPTIONS, None),
+            (PARAM_RETRANSMISSION, "Retransmission", "", RETRANS_OPTIONS, None),
+            (PARAM_LO_RETRANS, "Lower Retrans Limit", "", None, 1),
+            (PARAM_UP_RETRANS, "Upper Retrans Limit", "", None, 1),
+        ],
+    },
+    "advanced": {
+        "title": "Advanced",
+        "params": [
+            (PARAM_CURRENT_TRANSFORMER, "Current Transformer", "A", None, 1),
+            (PARAM_LB_THRESHOLD, "Loop Break Threshold", "", None, 1),
+            (PARAM_LB_DELAY, "Loop Break Delay", "s", None, 1),
+            (SETPOINT_STORE_TIME, "SP Store Time", "s", None, 1),
+        ],
+    },
+}
+
+# Error flag bit descriptions
+ERROR_FLAG_NAMES = {
+    0: "EEPROM Write",
+    1: "EEPROM Read",
+    2: "Cold Junction",
+    3: "Process Error",
+    4: "Generic",
+    5: "Hardware",
+    6: "LBA Open",
+    7: "LBA Close",
+    8: "Missing Cal.",
+}
 
 
 class ErrorFlag(IntEnum):

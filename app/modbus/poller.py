@@ -28,6 +28,7 @@ class LiveData:
     controller_running: Optional[bool] = None
     auto_mode: Optional[bool] = None
     tuning_active: Optional[bool] = None
+    cold_junction_temp: Optional[float] = None
     connected: bool = False
     decimal_point: int = 1
 
@@ -44,6 +45,7 @@ class LiveData:
             "controller_running": self.controller_running,
             "auto_mode": self.auto_mode,
             "tuning_active": self.tuning_active,
+            "cold_junction_temp": self.cold_junction_temp,
             "connected": self.connected,
             "decimal_point": self.decimal_point,
         }
@@ -157,6 +159,10 @@ class Poller:
         # Read tuning
         tn = await self.client.read_register(registers.TUNING_ON_OFF)
         data.tuning_active = tn == 1 if tn is not None else None
+
+        # Read cold junction temperature
+        cj = await self.client.read_scaled(registers.COLD_JUNCTION_TEMP)
+        data.cold_junction_temp = cj
 
         # Check if we lost connection during reads
         data.connected = self.client.connected

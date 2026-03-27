@@ -61,6 +61,10 @@ class AlarmUpdate(BaseModel):
     alarm_2: Optional[float] = None
 
 
+class ParamGroupUpdate(BaseModel):
+    values: dict[str, float]
+
+
 class SerialConfigUpdate(BaseModel):
     port: Optional[str] = None
     baudrate: Optional[int] = None
@@ -270,6 +274,89 @@ async def set_controller_mode(auto: bool = True):
         raise HTTPException(503, "Not connected")
     ok = await _client.write_register(registers.AUTO_MANUAL, 0 if auto else 1)
     return {"auto_mode": auto, "written": ok}
+
+
+# --- Device Info ---
+
+@router.get("/device-info")
+async def get_device_info():
+    """Read device identification registers."""
+    if not _client or not _client.connected:
+        raise HTTPException(503, "Not connected")
+
+    result = {}
+    for reg in registers.DEVICE_INFO_REGISTERS:
+        val = await _client.read_register(reg)
+        result[reg.name] = val
+    return result
+
+
+# --- Parameter Groups ---
+
+@router.get("/params/groups")
+async def get_param_groups_meta():
+    """Return metadata for all parameter groups (for UI rendering)."""
+    groups = {}
+    for key, group in registers.PARAM_GROUPS.items():
+        params = []
+        for reg, label, unit, options, step in group["params"]:
+            p = {
+                "name": reg.name,
+                "label": label,
+                "unit": unit,
+                "address": reg.address,
+                "read_only": reg.read_only,
+                "scale": reg.scale,
+            }
+            if options:
+                p["options"] = {str(k): v for k, v in options.items()}
+            if step is not None:
+                p["step"] = step
+            params.append(p)
+        groups[key] = {"title": group["title"], "params": params}
+    return groups
+
+
+@router.get("/params/{group}")
+async def get_param_group(group: str):
+    """Read all parameters in a group."""
+    if group not in registers.PARAM_GROUPS:
+        raise HTTPException(404, f"Unknown parameter group: {group}")
+    if not _client or not _client.connected:
+        raise HTTPException(503, "Not connected")
+
+    result = {}
+    for reg, label, unit, options, step in registers.PARAM_GROUPS[group]["params"]:
+        if reg.scale != 1.0:
+            val = await _client.read_scaled(reg)
+        else:
+            val = await _client.read_register(reg)
+        result[reg.name] = val
+    return result
+
+
+@router.post("/params/{group}", dependencies=[Depends(require_auth)])
+async def update_param_group(group: str, update: ParamGroupUpdate):
+    """Write parameters in a group."""
+    if group not in registers.PARAM_GROUPS:
+        raise HTTPException(404, f"Unknown parameter group: {group}")
+    if not _client or not _client.connected:
+        raise HTTPException(503, "Not connected")
+
+    reg_lookup = {reg.name: reg for reg, *_ in registers.PARAM_GROUPS[group]["params"]}
+    results = {}
+    for name, value in update.values.items():
+        reg = reg_lookup.get(name)
+        if not reg:
+            continue
+        if reg.read_only:
+            continue
+        if reg.scale != 1.0:
+            ok = await _client.write_scaled(reg, value)
+        else:
+            ok = await _client.write_register(reg, int(value))
+        results[name] = {"written": ok, "value": value}
+    return results
 
 
 # --- Configuration Endpoints ---
