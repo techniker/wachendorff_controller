@@ -24,8 +24,8 @@ env/
 .DS_Store
 Thumbs.db
 
-# Config (keep template, ignore user config)
-# config.yaml is tracked as default template
+# Config (keep example, ignore user config)
+config.yaml
 
 # Environment
 .env

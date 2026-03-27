@@ -778,6 +778,126 @@ footer {
     font-variant-numeric: tabular-nums;
 }
 
+/* === Dashboard Extras === */
+.dashboard-extra {
+    display: flex;
+    gap: 16px;
+    margin: 12px 0;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+}
+
+.extra-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.extra-item label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.extra-item span {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.extra-item .unit {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+.error-details {
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: rgba(244, 67, 54, 0.1);
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    border-radius: var(--radius);
+    font-size: 0.8rem;
+    color: var(--danger);
+}
+
+.error-details.hidden {
+    display: none;
+}
+
+/* === Device Info Card === */
+.device-info-card {
+    grid-column: 1 / -1;
+}
+
+.device-info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.info-item {
+    text-align: center;
+    padding: 10px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+}
+
+.info-item label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.info-item span {
+    font-size: 1rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* === Collapsible Parameter Group === */
+.param-group-card {
+    grid-column: 1 / -1;
+}
+
+.param-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 0;
+}
+
+.param-group-header h2 {
+    margin-bottom: 0;
+}
+
+.param-group-toggle {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
+}
+
+.param-group-toggle.open {
+    transform: rotate(90deg);
+}
+
+.param-group-body {
+    display: none;
+    margin-top: 16px;
+}
+
+.param-group-body.open {
+    display: block;
+}
+
+.param-group-body .param-form {
+    max-width: 600px;
+}
+
 /* === MQTT Tab === */
 .mqtt-grid {
     display: grid;

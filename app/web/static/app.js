@@ -10,8 +10,15 @@ let decimalPoint = 1;
 let lastSetpoint = null;
 let lastPV = null;
 let lastHeating = null;
+let paramGroupsMeta = null;
 
 const MAX_CHART_POINTS = 300;
+
+const ERROR_FLAG_NAMES = {
+    0: "EEPROM Write", 1: "EEPROM Read", 2: "Cold Junction",
+    3: "Process Error", 4: "Generic", 5: "Hardware",
+    6: "LBA Open", 7: "LBA Close", 8: "Missing Cal.",
+};
 
 // === Initialization ===
 
@@ -37,7 +44,7 @@ function initTabs() {
             if (tab.dataset.tab === 'parameters' && isConnected) {
                 loadPIDParams();
                 loadSetpoints();
-                loadAlarms();
+                loadParamGroups();
             }
             if (tab.dataset.tab === 'mqtt') {
                 loadMqttConfig();
@@ -52,9 +59,14 @@ function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${protocol}//${window.location.host}/ws/live`);
 
+    let firstMessage = true;
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         updateDashboard(data);
+        if (firstMessage && data.connected) {
+            firstMessage = false;
+            loadDeviceInfo();
+        }
     };
 
     ws.onclose = () => {
@@ -134,7 +146,27 @@ function updateDashboard(data) {
         setLed('led-alarm2', (data.alarms_status & 2) !== 0, 'alarm');
     }
 
-    setLed('led-error', data.error_flags !== null && data.error_flags !== 0, 'alarm');
+    const hasError = data.error_flags !== null && data.error_flags !== 0;
+    setLed('led-error', hasError, 'alarm');
+
+    // Decode error flags
+    const errEl = document.getElementById('error-details');
+    if (hasError) {
+        const errors = [];
+        for (let bit = 0; bit <= 8; bit++) {
+            if (data.error_flags & (1 << bit)) {
+                errors.push(ERROR_FLAG_NAMES[bit] || `Bit ${bit}`);
+            }
+        }
+        errEl.textContent = 'Errors: ' + errors.join(', ');
+        errEl.classList.remove('hidden');
+    } else {
+        errEl.classList.add('hidden');
+    }
+
+    // Cold junction temperature
+    const cjEl = document.getElementById('cj-value');
+    cjEl.textContent = data.cold_junction_temp !== null ? data.cold_junction_temp.toFixed(1) : '--.-';
 
     // Update charts
     if (data.connected && pv !== null) {
@@ -511,6 +543,7 @@ async function toggleConnection() {
             const result = await apiPost('/connect');
             if (result.connected) {
                 toast('Connected successfully', 'success');
+                loadDeviceInfo();
             } else {
                 toast('Connection failed', 'error');
             }
@@ -671,6 +704,135 @@ async function writeAlarms() {
         await apiPost('/alarms', body);
         toast('Alarms written', 'success');
     } catch (e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// === Device Info ===
+
+async function loadDeviceInfo() {
+    try {
+        const data = await apiGet('/device-info');
+        document.getElementById('info-device-type').textContent = data.device_type ?? '--';
+        document.getElementById('info-sw-version').textContent = data.software_version ?? '--';
+        document.getElementById('info-boot-version').textContent = data.boot_version ?? '--';
+        document.getElementById('info-slave-addr').textContent = data.slave_address ?? '--';
+    } catch (e) {
+        console.error('Error loading device info:', e);
+    }
+}
+
+// === Dynamic Parameter Groups ===
+
+async function loadParamGroupsMeta() {
+    if (paramGroupsMeta) return paramGroupsMeta;
+    try {
+        paramGroupsMeta = await apiGet('/params/groups');
+        return paramGroupsMeta;
+    } catch (e) {
+        console.error('Error loading param groups meta:', e);
+        return null;
+    }
+}
+
+function renderParamGroupCard(key, group) {
+    const cardId = `param-group-${key}`;
+    if (document.getElementById(cardId)) return;
+
+    const card = document.createElement('div');
+    card.className = 'card param-group-card';
+    card.id = cardId;
+
+    let formHtml = '';
+    for (const p of group.params) {
+        if (p.options) {
+            const opts = Object.entries(p.options)
+                .map(([v, l]) => `<option value="${v}">${l}</option>`)
+                .join('');
+            formHtml += `<div class="param-row">
+                <label>${p.label}</label>
+                <select id="pg-${key}-${p.name}" data-name="${p.name}">${opts}</select>
+                <span class="unit">${p.unit || ''}</span>
+            </div>`;
+        } else {
+            const step = p.step || 1;
+            formHtml += `<div class="param-row">
+                <label>${p.label}</label>
+                <input type="number" id="pg-${key}-${p.name}" step="${step}" data-name="${p.name}">
+                <span class="unit">${p.unit || ''}</span>
+            </div>`;
+        }
+    }
+
+    card.innerHTML = `
+        <div class="param-group-header" onclick="toggleParamGroup('${key}')">
+            <h2>${group.title}</h2>
+            <span class="param-group-toggle" id="pg-toggle-${key}">&#x25B6;</span>
+        </div>
+        <div class="param-group-body" id="pg-body-${key}">
+            <div class="param-form">
+                ${formHtml}
+                <div class="button-row">
+                    <button class="btn btn-secondary" onclick="loadParamGroup('${key}')">Refresh</button>
+                    <button class="btn btn-primary" onclick="writeParamGroup('${key}')">Write</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('param-groups-container').appendChild(card);
+}
+
+function toggleParamGroup(key) {
+    const body = document.getElementById(`pg-body-${key}`);
+    const toggle = document.getElementById(`pg-toggle-${key}`);
+    const isOpen = body.classList.toggle('open');
+    toggle.classList.toggle('open', isOpen);
+    if (isOpen && isConnected) {
+        loadParamGroup(key);
+    }
+}
+
+async function loadParamGroups() {
+    const meta = await loadParamGroupsMeta();
+    if (!meta) return;
+    for (const [key, group] of Object.entries(meta)) {
+        renderParamGroupCard(key, group);
+    }
+}
+
+async function loadParamGroup(key) {
+    try {
+        const data = await apiGet(`/params/${key}`);
+        const meta = paramGroupsMeta[key];
+        for (const p of meta.params) {
+            const el = document.getElementById(`pg-${key}-${p.name}`);
+            if (!el || data[p.name] === null || data[p.name] === undefined) continue;
+            el.value = data[p.name];
+        }
+    } catch (e) {
+        toast('Error loading ' + key + ': ' + e.message, 'error');
+    }
+}
+
+async function writeParamGroup(key) {
+    const meta = paramGroupsMeta[key];
+    const values = {};
+    for (const p of meta.params) {
+        if (p.read_only) continue;
+        const el = document.getElementById(`pg-${key}-${p.name}`);
+        if (!el) continue;
+        const val = parseFloat(el.value);
+        if (!isNaN(val)) values[p.name] = val;
+    }
+    if (Object.keys(values).length === 0) {
+        toast('No values to write', 'info');
+        return;
+    }
+    try {
+        await apiPost(`/params/${key}`, { values });
+        toast(meta.title + ' written', 'success');
+    } catch (e) {
+        toast('Error: ' + e.message, 'error');
+    }
 }
 
 // === Configuration ===
