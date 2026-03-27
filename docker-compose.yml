@@ -5,6 +5,9 @@ services:
       - "5001:5001"
     devices:
       - "/dev/ttyUSB0:/dev/ttyUSB0"
+      - "/dev/ttyUSB1:/dev/ttyUSB1"
+    group_add:
+      - "20"
     volumes:
       - ./config.yaml:/app/config.yaml
     restart: unless-stopped

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wachendorff URDR Controller</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
@@ -32,7 +32,7 @@
         <!-- Dashboard Tab -->
         <section id="tab-dashboard" class="tab-content active">
             <div class="dashboard-grid">
-                <!-- Live Values -->
+                <!-- Row 1: Live Values + Status -->
                 <div class="card live-values">
                     <h2>Live Values</h2>
                     <div class="value-display">
@@ -49,14 +49,14 @@
                     </div>
                     <div class="output-bars">
                         <div class="bar-group">
-                            <label>Heating Output</label>
+                            <label>Heating</label>
                             <div class="bar-container">
                                 <div id="heating-bar" class="bar heating" style="width: 0%"></div>
                             </div>
                             <span id="heating-value">0%</span>
                         </div>
                         <div class="bar-group">
-                            <label>Cooling Output</label>
+                            <label>Cooling</label>
                             <div class="bar-container">
                                 <div id="cooling-bar" class="bar cooling" style="width: 0%"></div>
                             </div>
@@ -65,51 +65,19 @@
                     </div>
                 </div>
 
-                <!-- Status Indicators -->
                 <div class="card status-indicators">
                     <h2>Status</h2>
                     <div class="indicator-grid">
-                        <div class="indicator">
-                            <span id="led-running" class="led off"></span>
-                            <label>Running</label>
-                        </div>
-                        <div class="indicator">
-                            <span id="led-auto" class="led off"></span>
-                            <label>Auto Mode</label>
-                        </div>
-                        <div class="indicator">
-                            <span id="led-tuning" class="led off"></span>
-                            <label>Tuning</label>
-                        </div>
-                        <div class="indicator">
-                            <span id="led-relay1" class="led off"></span>
-                            <label>Relay Q1</label>
-                        </div>
-                        <div class="indicator">
-                            <span id="led-relay2" class="led off"></span>
-                            <label>Relay Q2</label>
-                        </div>
-                        <div class="indicator">
-                            <span id="led-alarm1" class="led off"></span>
-                            <label>Alarm 1</label>
-                        </div>
-                        <div class="indicator">
-                            <span id="led-alarm2" class="led off"></span>
-                            <label>Alarm 2</label>
-                        </div>
-                        <div class="indicator">
-                            <span id="led-error" class="led off"></span>
-                            <label>Error</label>
-                        </div>
+                        <div class="indicator"><span id="led-running" class="led off"></span><label>Running</label></div>
+                        <div class="indicator"><span id="led-auto" class="led off"></span><label>Auto</label></div>
+                        <div class="indicator"><span id="led-tuning" class="led off"></span><label>Tuning</label></div>
+                        <div class="indicator"><span id="led-relay1" class="led off"></span><label>Q1</label></div>
+                        <div class="indicator"><span id="led-relay2" class="led off"></span><label>Q2</label></div>
+                        <div class="indicator"><span id="led-alarm1" class="led off"></span><label>Alarm 1</label></div>
+                        <div class="indicator"><span id="led-alarm2" class="led off"></span><label>Alarm 2</label></div>
+                        <div class="indicator"><span id="led-error" class="led off"></span><label>Error</label></div>
                     </div>
                     <div id="error-details" class="error-details hidden"></div>
-                    <div class="dashboard-extra">
-                        <div class="extra-item">
-                            <label>Cold Junction</label>
-                            <span id="cj-value">--.-</span>
-                            <span class="unit">°C</span>
-                        </div>
-                    </div>
                     <div class="control-buttons">
                         <button id="btn-connect" class="btn btn-primary" onclick="toggleConnection()">Connect</button>
                         <button id="btn-start" class="btn btn-success" onclick="controllerStart()" disabled>Start</button>
@@ -117,23 +85,21 @@
                     </div>
                 </div>
 
-                <!-- Device Info -->
+                <!-- Row 2: Device Info strip + Setpoint Control -->
                 <div class="card device-info-card">
-                    <h2>Device Info</h2>
-                    <div class="device-info-grid" id="device-info">
-                        <div class="info-item"><label>Device Type</label><span id="info-device-type">--</span></div>
-                        <div class="info-item"><label>SW Version</label><span id="info-sw-version">--</span></div>
-                        <div class="info-item"><label>Boot Version</label><span id="info-boot-version">--</span></div>
-                        <div class="info-item"><label>Slave Address</label><span id="info-slave-addr">--</span></div>
+                    <div class="device-info-inline" id="device-info">
+                        <div class="info-item"><label>Device</label><span id="info-device-type">--</span></div>
+                        <div class="info-item"><label>SW</label><span id="info-sw-version">--</span></div>
+                        <div class="info-item"><label>Boot</label><span id="info-boot-version">--</span></div>
+                        <div class="info-item"><label>Addr</label><span id="info-slave-addr">--</span></div>
+                        <div class="info-item"><label>CJ Temp</label><span id="cj-value">--.-</span><span class="unit">°C</span></div>
                     </div>
                 </div>
 
-                <!-- Setpoint Control -->
                 <div class="card setpoint-card">
-                    <h2>Setpoint Control</h2>
                     <div class="setpoint-control">
                         <div class="sp-current">
-                            <label>Current Setpoint</label>
+                            <label>Setpoint</label>
                             <span id="sp-live" class="sp-live-value">--.-</span>
                             <span class="unit">°C</span>
                         </div>
@@ -147,22 +113,21 @@
                             <button class="btn btn-nudge btn-up" onclick="nudgeSetpoint(0.1)" title="+0.1">+0.1</button>
                             <button class="btn btn-nudge btn-up-big" onclick="nudgeSetpoint(1)" title="+1.0">+1</button>
                         </div>
-                        <button class="btn btn-primary sp-set-btn" onclick="writeSetpoint()">Set Setpoint</button>
+                        <button class="btn btn-primary sp-set-btn" onclick="writeSetpoint()">Set</button>
                     </div>
                 </div>
 
-                <!-- Temperature Chart -->
-                <div class="card chart-card">
+                <!-- Row 3: Charts side by side -->
+                <div class="card chart-card chart-left">
                     <h2>Temperature History</h2>
                     <div class="chart-wrapper">
                         <canvas id="temp-chart"></canvas>
                     </div>
                 </div>
 
-                <!-- Output Chart -->
-                <div class="card chart-card">
+                <div class="card chart-card chart-right">
                     <h2>Output History</h2>
-                    <div class="chart-wrapper chart-wrapper-sm">
+                    <div class="chart-wrapper">
                         <canvas id="output-chart"></canvas>
                     </div>
                 </div>
@@ -542,6 +507,6 @@
 
     <div id="toast-container"></div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=2"></script>
 </body>
 </html>

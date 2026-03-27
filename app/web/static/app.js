@@ -682,29 +682,7 @@ async function writeSetpoints() {
     } catch (e) { toast('Error: ' + e.message, 'error'); }
 }
 
-// === Alarms ===
-
-async function loadAlarms() {
-    try {
-        const data = await apiGet('/alarms');
-        if (data.alarm_1_value !== null) document.getElementById('param-al1').value = data.alarm_1_value;
-        if (data.alarm_2_value !== null) document.getElementById('param-al2').value = data.alarm_2_value;
-    } catch (e) { toast('Error loading alarms: ' + e.message, 'error'); }
-}
-
-async function writeAlarms() {
-    const body = {};
-    const al1 = parseFloat(document.getElementById('param-al1').value);
-    const al2 = parseFloat(document.getElementById('param-al2').value);
-
-    if (!isNaN(al1)) body.alarm_1 = al1;
-    if (!isNaN(al2)) body.alarm_2 = al2;
-
-    try {
-        await apiPost('/alarms', body);
-        toast('Alarms written', 'success');
-    } catch (e) { toast('Error: ' + e.message, 'error'); }
-}
+// === Alarms (now handled via param groups alarm1/alarm2) ===
 
 // === Device Info ===
 
